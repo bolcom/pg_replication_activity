@@ -255,7 +255,7 @@ def main():
         # top part
         interval = 0
         if PGAUI.get_mode() == 'lag':
-            lag_info = PGAUI.data.get_lag_info()
+            lag_info = PGAUI.data.get_standby_info()
         # draw the flag
         flag = UI.get_flag_from_options(args)
         # main loop

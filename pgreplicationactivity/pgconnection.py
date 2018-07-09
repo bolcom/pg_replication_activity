@@ -30,6 +30,8 @@ import re
 import psycopg2
 # from psycopg2 import sql
 
+RE_QUOTE=re.compile('''['"]''')
+
 
 class PGConnectionException(Exception):
     '''
@@ -55,6 +57,7 @@ class PGConnection():
         self.pg_version = None
         self.pg_num_version = None
         self.set_num_version()
+        self.__recoveryconf = None
 
     def dsn(self, dsn_params=None):
         '''
@@ -179,7 +182,7 @@ class PGConnection():
             return result[0]
         raise PGConnectionException('Cannot determine current_time_lag_lsn')
 
-    def get_lag_info(self):
+    def get_standby_info(self):
         '''
         This method returns the replication info of all connected servers.
         '''
@@ -191,6 +194,13 @@ class PGConnection():
         else:
             ret['role'] = 'master'
             ret['upstream'] = ''
+        try:
+            recoveryconf = self.recoveryconf()
+            ret['recovery_conf'] = True
+            ret['standby_mode'] = confbool_to_bool(recoveryconf.get('standby_mode'))
+        except AttributeError:
+            ret['recovery_conf'] = False
+            ret['standby_mode'] = None
         return ret
 
     def get_pg_version(self,):
@@ -244,6 +254,23 @@ class PGConnection():
 
         # In that case, we cannot deduce version number.
         raise Exception('Undefined PostgreSQL version.')
+
+    def recoveryconf(self):
+        if self.__recoveryconf or self.__recoveryconf is False:
+            return self.__recoveryconf
+        try:
+            result = self.run_sql("select pg_read_file('recovery.conf') as recoveryconf")
+            self.__recoveryconf = ret = {}
+            for line in result[0]['recoveryconf'].split('\n'):
+                line=line.strip()
+                if not '=' in line:
+                    continue
+                k,v = line.split('=', 1)
+                k, v = k.strip(), v.strip()
+                ret[k] = v
+        except psycopg2.OperationalError:
+            self.__recoveryconf = ret = False
+        return ret
 
 
 class PGMultiConnection():
@@ -317,13 +344,13 @@ class PGMultiConnection():
             hostid = new_con.hostid()
             self.__conn[hostid] = new_con
 
-    def get_lag_info(self):
+    def get_standby_info(self):
         '''
         This method returns the replication info of all connected servers.
         '''
         ret = []
         for connection in self.__conn:
-            lag_info = self.__conn[connection].get_lag_info()
+            lag_info = self.__conn[connection].get_standby_info()
             ret.append(lag_info)
         # To keep time distance between these queries as short as possible
         # These queries are run in a seperate run.
@@ -382,3 +409,14 @@ def lsn_to_xlogbyte(lsn):
     # multiply wal file nr to offset by multiplying with 2**32, and add offset
     # in file to come to absolute int position of lsn and return result
     return xlogid * 2**32 + xrecoff
+
+def confbool_to_bool(confbool):
+    '''
+    This function is used to convert a boolean from postgres config to a python boolean (True or False)
+    '''
+    confbool = RE_QUOTE.sub('', confbool.lower())
+    if confbool.lower() in ['on', 'true', 'yes', '1', 1]:
+        return True
+    elif confbool.lower() in ['off', 'false', 'no', '0', 0]:
+        return False
+    return None

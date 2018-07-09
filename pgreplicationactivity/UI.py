@@ -45,9 +45,11 @@ C_GRAY = 10
 
 # Columns
 PGTOP_FLAG_UPSTREAM = 1
-PGTOP_FLAG_LAGS = 2
-PGTOP_FLAG_ROLE = 4
-PGTOP_FLAG_LAGB = 8
+PGTOP_FLAG_RECCONF = 2
+PGTOP_FLAG_STBYMODE = 4
+PGTOP_FLAG_LAGS = 8
+PGTOP_FLAG_ROLE = 16
+PGTOP_FLAG_LAGB = 32
 PGTOP_FLAG_NONE = None
 
 # Display query mode
@@ -81,15 +83,29 @@ PGTOP_COLS = {
             'flag': PGTOP_FLAG_UPSTREAM,
             'mandatory': False
         },
-        'lag_sec': {
+        'recovery_conf': {
             'n':  4,
+            'name': 'REC_CONF',
+            'template_h': '%-10s ',
+            'flag': PGTOP_FLAG_RECCONF,
+            'mandatory': False
+        },
+        'standby_mode': {
+            'n':  5,
+            'name': 'STBY_MODE',
+            'template_h': '%-10s ',
+            'flag': PGTOP_FLAG_STBYMODE,
+            'mandatory': False
+        },
+        'lag_sec': {
+            'n':  6,
             'name': 'LAG(s)',
             'template_h': '%10s ',
             'flag': PGTOP_FLAG_LAGS,
             'mandatory': False
         },
         'lag_bytes': {
-            'n':  5,
+            'n':  7,
             'name': 'LAG(B)',
             'template_h': '%10s ',
             'flag': PGTOP_FLAG_LAGB,
@@ -226,6 +242,16 @@ class UI:
                 'yellow':  self.__get_color(C_YELLOW) | curses.A_BOLD
             },
             'upstream': {
+                'default': curses.A_BOLD | self.__get_color(C_GRAY),
+                'cursor':  self.__get_color(C_CYAN) | curses.A_REVERSE,
+                'yellow':  self.__get_color(C_YELLOW) | curses.A_BOLD
+            },
+            'recovery_conf': {
+                'default': curses.A_BOLD | self.__get_color(C_GRAY),
+                'cursor':  self.__get_color(C_CYAN) | curses.A_REVERSE,
+                'yellow':  self.__get_color(C_YELLOW) | curses.A_BOLD
+            },
+            'standby_mode': {
                 'default': curses.A_BOLD | self.__get_color(C_GRAY),
                 'cursor':  self.__get_color(C_CYAN) | curses.A_REVERSE,
                 'yellow':  self.__get_color(C_YELLOW) | curses.A_BOLD
@@ -761,7 +787,7 @@ class UI:
                 disp_proc)
 
         # poll postgresql activity
-        lag_info = self.data.get_lag_info()
+        lag_info = self.data.get_standby_info()
 
         # return processes sorted by query duration
         try:
@@ -1060,6 +1086,10 @@ class UI:
                 colno += self.__print_string(l_lineno, colno, word, color)
             if flag & PGTOP_FLAG_UPSTREAM:
                 cols.append('upstream')
+            if flag & PGTOP_FLAG_RECCONF:
+                cols.append('recovery_conf')
+            if flag & PGTOP_FLAG_STBYMODE:
+                cols.append('standby_mode')
             if flag & PGTOP_FLAG_LAGS:
                 cols.append('lag_sec')
             if flag & PGTOP_FLAG_LAGB:
@@ -1097,7 +1127,7 @@ def get_flag_from_options(options):
     """
     Returns the flag depending on the options.
     """
-    flag = PGTOP_FLAG_UPSTREAM | PGTOP_FLAG_ROLE | PGTOP_FLAG_LAGS | PGTOP_FLAG_LAGB
+    flag = PGTOP_FLAG_UPSTREAM | PGTOP_FLAG_RECCONF | PGTOP_FLAG_STBYMODE | PGTOP_FLAG_ROLE | PGTOP_FLAG_LAGS | PGTOP_FLAG_LAGB
     if options.nodb is True:
         flag -= PGTOP_FLAG_UPSTREAM
     if options.nouser is True:
