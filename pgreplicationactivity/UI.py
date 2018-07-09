@@ -29,9 +29,7 @@ import curses
 import time
 import sys
 import re
-from datetime import timedelta
 from getpass import getpass
-from pgreplicationactivity.Data import Data
 
 # Define some color pairs
 C_BLACK_GREEN = 1
@@ -135,6 +133,7 @@ class UI:
         self.sys_color = True
         self.lineno = 0
         self.lines = []
+        self.line_colors = None
         # Maximum number of columns
         self.max_ncol = 13
         # Default
@@ -164,7 +163,7 @@ class UI:
         self.pid_yank = []
         self.pid = []
         # Data collector
-        self.data = Data()
+        self.data = None
         # Maximum number of column
         self.max_ncol = PGTOP_MAX_NCOL
         # Default filesystem blocksize
@@ -289,21 +288,6 @@ class UI:
         curses.endwin()
         self.win.scrollok(0)
         (self.maxy, self.maxx) = self.win.getmaxyx()
-
-    def get_flag_from_options(self, options):
-        """
-        Returns the flag depending on the options.
-        """
-        flag = PGTOP_FLAG_UPSTREAM | PGTOP_FLAG_ROLE | PGTOP_FLAG_LAGS | PGTOP_FLAG_LAGB
-        if options.nodb is True:
-            flag -= PGTOP_FLAG_UPSTREAM
-        if options.nouser is True:
-            flag -= PGTOP_FLAG_ROLE
-        if options.nocpu is True:
-            flag -= PGTOP_FLAG_LAGB
-        if options.noclient is True:
-            flag -= PGTOP_FLAG_LAGS
-        return flag
 
     def __get_color(self, color):
         """
@@ -777,7 +761,7 @@ class UI:
                 disp_proc)
 
         # poll postgresql activity
-        lag_info = self.data.pg_get_lag_info()
+        lag_info = self.data.get_lag_info()
 
         # return processes sorted by query duration
         try:
@@ -1107,3 +1091,19 @@ def clean_str(string):
     msg = re.sub(r"^\s", r"", msg)
     msg = re.sub(r"\s$", r"", msg)
     return msg
+
+
+def get_flag_from_options(options):
+    """
+    Returns the flag depending on the options.
+    """
+    flag = PGTOP_FLAG_UPSTREAM | PGTOP_FLAG_ROLE | PGTOP_FLAG_LAGS | PGTOP_FLAG_LAGB
+    if options.nodb is True:
+        flag -= PGTOP_FLAG_UPSTREAM
+    if options.nouser is True:
+        flag -= PGTOP_FLAG_ROLE
+    if options.nocpu is True:
+        flag -= PGTOP_FLAG_LAGB
+    if options.noclient is True:
+        flag -= PGTOP_FLAG_LAGS
+    return flag

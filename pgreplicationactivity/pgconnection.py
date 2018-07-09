@@ -26,6 +26,7 @@ MAINTENANCE, SUPPORT, UPDATES, ENHANCEMENTS, OR MODIFICATIONS.
 import os
 from copy import copy
 import logging
+import re
 import psycopg2
 # from psycopg2 import sql
 
@@ -47,10 +48,13 @@ class PGConnection():
         Sets some defaults on a new initted PGConnection class.
         '''
         if not isinstance(dsn_params, dict) or not dsn_params:
-            raise PGConnectionException('Init PGConnection class with a dict of connection \
-                                         parameters')
+            raise PGConnectionException('Init PGConnection class with a dict of '
+                                        'connection parameters')
         self.__dsn_params = dsn_params
         self.__conn = {}
+        self.pg_version = None
+        self.pg_num_version = None
+        self.set_num_version()
 
     def dsn(self, dsn_params=None):
         '''
@@ -63,10 +67,7 @@ class PGConnection():
                     del dsn_params[key]
                 except KeyError:
                     pass
-        for key in ['sslkey', 'sslcert', 'sslrootcert']:
-            if key in dsn_params:
-                dsn_params[key] = os.path.realpath(os.path.expanduser(dsn_params[key]))
-        return " ".join(["=".join((k, str(v))) for k, v in dsn_params.items()])
+        return dsn_to_connstr(dsn_params)
 
     def connect(self, database: str = 'postgres'):
         '''
@@ -143,6 +144,107 @@ class PGConnection():
                               'inet_server_port() as port')
         return '{0}:{1}'.format(result[0]['ip'], result[0]['port'])
 
+    def get_upstream(self):
+        '''
+        This method calculates the upstream server for a standby.
+        '''
+        try:
+            conninfo = self.run_sql('select conninfo from pg_stat_wal_receiver')
+            conninfo = conninfo[0]['conninfo']
+            dsn = connstr_to_dsn(conninfo)
+            return '{0}:{1}'.format(dsn['host'], dsn['port'])
+        except IndexError:
+            return ''
+
+    def current_time_lag_lsn(self):
+        '''
+        This method resturns the local time, the lag (compared to local time)
+        and the latest received lsn. We can use this info to display time drift.
+        '''
+        result = self.run_sql('select now() as now, latest_end_lsn as lsn, '
+                              'extract( epoch from now() - '
+                              'pg_last_xact_replay_timestamp()) as lag_sec '
+                              'from pg_stat_wal_receiver')
+        if result:
+            return result[0]
+        if self.pg_num_version >= 100000:
+            # For PG10, we cannot use pg_current_xlog_location(), but should use
+            # pg_current_wal_lsn() instead
+            result = self.run_sql('select now() as now, pg_current_wal_lsn() as lsn, '
+                                  '0 as lag_sec')
+        else:
+            result = self.run_sql('select now() as now, pg_current_xlog_location() as lsn, '
+                                  '0 as lag_sec from pg_stat_wal_receiver')
+        if result:
+            return result[0]
+        raise PGConnectionException('Cannot determine current_time_lag_lsn')
+
+    def get_lag_info(self):
+        '''
+        This method returns the replication info of all connected servers.
+        '''
+        ret = {}
+        ret['host'] = self.hostid()
+        if self.is_standby():
+            ret['role'] = 'standby'
+            ret['upstream'] = self.get_upstream()
+        else:
+            ret['role'] = 'master'
+            ret['upstream'] = ''
+        return ret
+
+    def get_pg_version(self,):
+        """
+        Get self.pg_version
+        """
+        return self.pg_version
+
+    def set_num_version(self):
+        """
+        Get PostgreSQL short & numeric version from
+        a string (SELECT version()).
+        """
+        pg_version = self.run_sql("SELECT version() AS pg_version")
+        text_version = pg_version[0]['pg_version']
+        # First try as normal version number
+        res = re.match(
+            r"^(PostgreSQL|EnterpriseDB) ([0-9]+)\.([0-9]+)(?:\.([0-9]+))?",
+            text_version)
+        if res is not None:
+            rmatch = res.group(2)
+            if int(res.group(3)) < 10:
+                rmatch += '0'
+            rmatch += res.group(3)
+            if res.group(4) is not None:
+                if int(res.group(4)) < 10:
+                    rmatch += '0'
+                rmatch += res.group(4)
+            else:
+                rmatch += '00'
+            self.pg_version = str(res.group(0))
+            self.pg_num_version = int(rmatch)
+            return
+
+        # Okay, then try with devel version number
+        res = re.match(
+            r"^(PostgreSQL|EnterpriseDB) ([0-9]+)(?:\.([0-9]+))?(devel|beta[0-9]+|rc[0-9]+)",
+            text_version)
+        if res is not None:
+            rmatch = res.group(2)
+            if res.group(3) is not None:
+                if int(res.group(3)) < 10:
+                    rmatch += '0'
+                rmatch += res.group(3)
+            else:
+                rmatch += '00'
+            rmatch += '00'
+            self.pg_version = str(res.group(0))
+            self.pg_num_version = int(rmatch)
+            return
+
+        # In that case, we cannot deduce version number.
+        raise Exception('Undefined PostgreSQL version.')
+
 
 class PGMultiConnection():
     '''
@@ -155,8 +257,8 @@ class PGMultiConnection():
         Sets some defaults on a new initted PGConnection class.
         '''
         if not isinstance(dsn_params, dict) or not dsn_params:
-            raise PGConnectionException('Init PGConnection class with a dict of connection \
-                                         parameters')
+            raise PGConnectionException('Init PGConnection class with a dict of '
+                                        'connection parameters')
         self.__dsn_params = dsn_params
         self.__conn = {}
 
@@ -171,9 +273,6 @@ class PGMultiConnection():
                     del dsn_params[key]
                 except KeyError:
                     pass
-        for key in ['sslkey', 'sslcert', 'sslrootcert']:
-            if key in dsn_params:
-                dsn_params[key] = os.path.realpath(os.path.expanduser(dsn_params[key]))
         return " ".join(["=".join((k, str(v))) for k, v in dsn_params.items()])
 
     def connect(self, database: str = 'postgres'):
@@ -192,8 +291,10 @@ class PGMultiConnection():
         # Split 'host=127.0.0.1 dbname=postgres' in {'host': '127.0.0.1', 'dbname': 'postgres'}
         dsn_params = copy(self.__dsn_params)
         dsn_params['dbname'] = database
-        ports = dsn_params.get('port', '5432').split(',')
+        ports = dsn_params.get('port', os.environ.get('PGPORT', '5432')).split(',')
         hosts = dsn_params.get('host')
+        if not hosts:
+            hosts = os.environ.get('PGHOST')
         if hosts:
             hosts = hosts.split(',')
             if len(hosts) > 1 and len(ports) == 1:
@@ -211,3 +312,73 @@ class PGMultiConnection():
                     new_con.disconnect()
                 else:
                     self.__conn[hostid] = new_con
+        else:
+            new_con = PGConnection(dsn_params)
+            hostid = new_con.hostid()
+            self.__conn[hostid] = new_con
+
+    def get_lag_info(self):
+        '''
+        This method returns the replication info of all connected servers.
+        '''
+        ret = []
+        for connection in self.__conn:
+            lag_info = self.__conn[connection].get_lag_info()
+            ret.append(lag_info)
+        # To keep time distance between these queries as short as possible
+        # These queries are run in a seperate run.
+        for lag_info in ret:
+            hostid = lag_info['host']
+            lag_info.update(self.__conn[hostid].current_time_lag_lsn())
+        # We now detect the latest LSN and now fro all servers.
+        # This will act as reference for drift and lag_bytes.
+        max_now = max([li['now'] for li in ret])
+        max_lsn = max([lsn_to_xlogbyte(li['lsn']) for li in ret])
+        # Now just calculate drift and lag_bytes
+        for lag_info in ret:
+            lag_info['drift'] = max_now - lag_info['now']
+            lag_info['lag_bytes'] = max_lsn - lsn_to_xlogbyte(lag_info['lsn'])
+        return ret
+
+    def get_pg_version(self,):
+        """
+        Get self.pg_version
+        """
+        pg_versions = set([connection.get_pg_version() for _, connection in self.__conn.items()])
+        if len(pg_versions) == 1:
+            return pg_versions.pop()
+        raise PGConnectionException('More than one pg_version was detected in this multicluster')
+
+
+def dsn_to_connstr(dsn_params=None):
+    '''
+    This function converts a dict with dsn params to a connstring.
+    '''
+    return " ".join(["=".join((k, str(v))) for k, v in dsn_params.items()])
+
+
+def connstr_to_dsn(connstring=''):
+    '''
+    This function converts a dict with dsn params to a connstring.
+    '''
+    connstring = connstring.strip()
+    if not connstring:
+        return {}
+    return dict([kv.split('=', 1) for kv in connstring.split(' ')])
+
+
+def lsn_to_xlogbyte(lsn):
+    '''
+    This function converts a LSN to a integer, which points to an exact byte
+    in the wal stream.
+    '''
+    # Split by '/' character
+    xlogid, xrecoff = lsn.split('/')
+
+    # Convert both from hex to int
+    xlogid = int(xlogid, 16)
+    xrecoff = int(xrecoff, 16)
+
+    # multiply wal file nr to offset by multiplying with 2**32, and add offset
+    # in file to come to absolute int position of lsn and return result
+    return xlogid * 2**32 + xrecoff

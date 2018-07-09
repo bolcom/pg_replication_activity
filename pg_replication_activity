@@ -30,12 +30,11 @@ import sys
 import signal
 import argparse
 import socket
-import getpass
 import curses
 import psycopg2
 from psycopg2 import errorcodes
 
-from pgreplicationactivity import UI
+from pgreplicationactivity import UI, pgconnection
 
 PGTOP_VERSION = "0.0.1"
 
@@ -64,39 +63,43 @@ def get_arguments():
             action='store_true',
             help='show this help message and exit')
 
+        # -c / --connectstring
+        parser.add_argument(
+            '-c',
+            '--connectstring',
+            dest='constr',
+            default='',
+            help='Connectstring (default: "").',
+            metavar='CONNECTSTRING')
         # -U / --username
         parser.add_argument(
             '-U',
             '--username',
             dest='username',
-            default=os.environ.get('PGUSER') or getpass.getuser(),
-            help='Database user name (default: "%s").' % (getpass.getuser(),),
+            help='Database user name (default: "").',
             metavar='USERNAME')
         # -p / --port
         parser.add_argument(
             '-p',
             '--port',
             dest='port',
-            default=os.environ.get('PGPORT') or '5432',
-            help="Database server port (default: \"5432\").",
+            help='Database server port (default: "").',
             metavar='PORT')
         # -h / --host
         parser.add_argument(
             '-h',
             '--host',
             dest='host',
-            help="Database server host or socket directory \
-                        (default: \"localhost\").",
-            metavar='HOSTNAME',
-            default=os.environ.get('PGHOST') or 'localhost')
+            help='Database server host or socket directory (default: "").',
+            metavar='HOSTNAME')
         # -d / --dbname
         parser.add_argument(
             '-d',
             '--dbname',
             dest='dbname',
-            help="Database name to connect to (default: \"postgres\").",
+            help='Database name to connect to (default: "").',
             metavar='DBNAME',
-            default='postgres')
+            default='')
         # -C / --no-color
         parser.add_argument(
             '-C',
@@ -215,13 +218,19 @@ def main():
         nb_try = 0
         while nb_try < 2:
             try:
-                PGAUI.data.pg_connect(
-                    host=args.host,
-                    port=args.port,
-                    user=args.username,
-                    password=password,
-                    database=args.dbname,
-                    rds_mode=args.rds)
+                dsn = pgconnection.connstr_to_dsn(args.constr)
+                if args.host:
+                    dsn['host'] = args.host
+                if args.port:
+                    dsn['port'] = args.port
+                if args.username:
+                    dsn['user'] = args.username
+                if password:
+                    dsn['password'] = password
+                if args.dbname:
+                    dsn['dbname'] = args.dbname
+                PGAUI.data = pgconnection.PGMultiConnection(dsn)
+                PGAUI.data.connect()
                 break
             except psycopg2.OperationalError as err:
                 msg = str(err).strip()
@@ -242,23 +251,16 @@ def main():
                     sys.exit("pg_activity: FATAL: %s" %
                              (UI.clean_str(str(err),)))
 
-        pg_version = PGAUI.data.pg_get_version()
-        PGAUI.data.pg_get_num_version(pg_version)
         hostname = socket.gethostname()
-        # does pg_activity runing against local PG instance
-        if not PGAUI.data.pg_is_local():
-            PGAUI.set_is_local(False)
-            PGAUI.set_start_line(2)
-            hostname = args.host
         # top part
         interval = 0
         if PGAUI.get_mode() == 'lag':
-            lag_info = PGAUI.data.pg_get_lag_info()
+            lag_info = PGAUI.data.get_lag_info()
         # draw the flag
-        flag = PGAUI.get_flag_from_options(args)
+        flag = UI.get_flag_from_options(args)
         # main loop
         disp_procs = None
-        delta_disk_io = None
+        delta_disk_io = {'write_bytes': 0, 'read_bytes': 0, 'read_count': 0, 'write_count': 0}
         # indentation
         indent = PGAUI.get_indent(flag)
         # Init curses
@@ -332,7 +334,7 @@ def main():
     except Exception as err:
         PGAUI.at_exit_curses()
         # DEBUG
-        if debug is True:
+        if args.debug is True:
             import traceback
             exc_type, exc_value, exc_traceback = sys.exc_info()
             traceback.print_exception(
