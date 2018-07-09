@@ -76,6 +76,7 @@ def get_arguments():
             '-U',
             '--username',
             dest='username',
+            default='',
             help='Database user name (default: "").',
             metavar='USERNAME')
         # -p / --port
@@ -83,6 +84,7 @@ def get_arguments():
             '-p',
             '--port',
             dest='port',
+            default='',
             help='Database server port (default: "").',
             metavar='PORT')
         # -h / --host
@@ -90,6 +92,7 @@ def get_arguments():
             '-h',
             '--host',
             dest='host',
+            default='',
             help='Database server host or socket directory (default: "").',
             metavar='HOSTNAME')
         # -d / --dbname
@@ -224,11 +227,13 @@ def main():
                 if args.port:
                     dsn['port'] = args.port
                 if args.username:
+                    print(args.username)
                     dsn['user'] = args.username
                 if password:
                     dsn['password'] = password
                 if args.dbname:
                     dsn['dbname'] = args.dbname
+                print(dsn)
                 PGAUI.data = pgconnection.PGMultiConnection(dsn)
                 PGAUI.data.connect()
                 break

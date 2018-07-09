@@ -101,12 +101,20 @@ class PGConnection():
         if database:
             databases = [database]
         else:
-            databases = self.__conn.keys()
+            databases = [db for db in  self.__conn.keys()]
         for database_name in databases:
             try:
                 del self.__conn[database_name]
             except Exception:
                 pass
+
+    def connection_dsn(self, database: str = 'postgres'):
+        '''
+        return get_dsn_parameters() from the connection.
+        Even if you use only service= in your dsn, you can deduct all connection details from this dict.
+        '''
+        self.connect(database)
+        return self.__conn[database].get_dsn_parameters()
 
     def run_sql(self, query, parameters=None, database: str = 'postgres'):
         '''
@@ -343,6 +351,24 @@ class PGMultiConnection():
             new_con = PGConnection(dsn_params)
             hostid = new_con.hostid()
             self.__conn[hostid] = new_con
+        if not 'service' in dsn_params and not 'PGSERVICEFILE' in os.environ:
+            return
+        if 'host' in self.__dsn_params or 'PGHOST' in os.environ:
+            return
+        if not len(self.__conn) == 1:
+            return
+        # A service was used, no host was set, and only one connection was made, 
+        # so maybe multiple hosts where defined in the service
+        # In that case libpq would only connect to one master.
+        # But we can easilly deduct hosts from the one connection.
+        con_dsn = list(self.__conn.values())[0].connection_dsn()
+        if ',' in con_dsn['host']:
+            # Seems like dsn of connection was pointing to more than one host
+            self.__dsn_params['host'] = con_dsn['host']
+            self.__dsn_params['port'] = con_dsn['port']
+            # We can safely rerun connect, since double connections
+            # are detected with using hostid() and and cleanly closed
+            self.connect(database)
 
     def get_standby_info(self):
         '''
