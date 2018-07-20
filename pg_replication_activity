@@ -64,6 +64,14 @@ def get_arguments():
             default='',
             help='Connectstring (default: "").',
             metavar='CONNECTSTRING')
+        # -r / --role
+        parser.add_argument(
+            '-r',
+            '--role',
+            dest='role',
+            default=None,
+            help='Role (default: "").',
+            metavar='ROLE')
         # -C / --no-color
         parser.add_argument(
             '-C',
@@ -160,7 +168,7 @@ def main():
         while nb_try < 2:
             try:
                 dsn = pgconnection.connstr_to_dsn(args.connstr)
-                PGAUI.data = pgconnection.PGMultiConnection(dsn)
+                PGAUI.data = pgconnection.PGMultiConnection(dsn, args.role)
                 PGAUI.data.connect()
                 break
             except psycopg2.OperationalError as err:
@@ -181,8 +189,8 @@ def main():
                 else:
                     sys.exit("pg_activity: FATAL: %s" %
                              (UI.clean_str(str(err),)))
-        connstr = pgconnection.dsn_to_connstr({k:v for k,v in dsn.items() if k != 'password'})
 
+        connstr = pgconnection.dsn_to_connstr({k:v for k,v in dsn.items() if k != 'password'})
         hostname = socket.gethostname()
         # top part
         interval = 0

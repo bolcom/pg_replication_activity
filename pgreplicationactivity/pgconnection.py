@@ -28,7 +28,7 @@ from copy import copy
 import logging
 import re
 import psycopg2
-# from psycopg2 import sql
+from psycopg2 import sql
 
 RE_QUOTE=re.compile('''['"]''')
 
@@ -46,7 +46,7 @@ class PGConnection():
     This class is used to connect to a postgres cluster and to run logical functionality
     through methods of this class, like dropdb, createdb, etc.
     '''
-    def __init__(self, dsn_params=None):
+    def __init__(self, dsn_params=None, role=None):
         '''
         Sets some defaults on a new initted PGConnection class.
         '''
@@ -54,6 +54,7 @@ class PGConnection():
             raise PGConnectionException('Init PGConnection class with a dict of '
                                         'connection parameters')
         self.__dsn_params = copy(dsn_params)
+        self.__role = role
         self.__conn = {}
         self.pg_version = None
         self.pg_num_version = None
@@ -78,6 +79,9 @@ class PGConnection():
         connstr = dsn_to_connstr(dsn_params)
         self.__conn[database] = conn = psycopg2.connect(connstr)
         conn.autocommit = True
+        if self.__role:
+            cur = conn.cursor()
+            cur.execute(sql.SQL('set role {}').format(sql.Identifier(self.__role)))
 
     def disconnect(self, database: str = ''):
         '''
@@ -139,8 +143,8 @@ class PGConnection():
         '''
         This simple helper function detects if the current user is conencted as superuser.
         '''
-        result = self.run_sql('select usesuper from pg_user where usename = CURRENT_USER;')
-        return result[0]['usesuper']
+        result = self.run_sql('select rolsuper from pg_roles where rolname = CURRENT_USER')
+        return result[0]['rolsuper']
 
     def is_standby(self):
         '''
@@ -357,7 +361,7 @@ class PGMultiConnection():
     clusters in a a replicated cluster) and to run logical functionality
     through methods of this class on all of them.
     '''
-    def __init__(self, dsn_params=None):
+    def __init__(self, dsn_params=None, role=None):
         '''
         Sets some defaults on a new initted PGConnection class.
         '''
@@ -365,6 +369,7 @@ class PGMultiConnection():
             raise PGConnectionException('Init PGConnection class with a dict of '
                                         'connection parameters')
         self.__dsn_params = copy(dsn_params)
+        self.__role = role
         self.__conn = {}
 
     def connect(self, database: str = 'postgres'):
@@ -396,7 +401,7 @@ class PGMultiConnection():
                 dsn_params['host'] = hosts[i]
                 dsn_params['port'] = ports[i]
                 try:
-                    new_con = PGConnection(dsn_params)
+                    new_con = PGConnection(dsn_params, self.__role)
                     hostid = new_con.hostid()
                 except psycopg2.OperationalError:
                     hostid = '{0}:{1}'.format(dsn_params['host'], dsn_params['port'])
@@ -408,7 +413,7 @@ class PGMultiConnection():
         else:
             # No hosts configured. Maybe service configured. Or default /tmp/.s.PGSQL.5432 might work.
             # Let libpq figure it out and use connection_dsn() to find hosts and ports config.
-            new_con = PGConnection(dsn_params)
+            new_con = PGConnection(dsn_params, self.__role)
             hostid = new_con.hostid()
             self.__conn[hostid] = new_con
         if not 'service' in dsn_params and not 'PGSERVICEFILE' in os.environ:
