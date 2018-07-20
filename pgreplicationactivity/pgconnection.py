@@ -148,6 +148,13 @@ class PGConnection():
         except psycopg2.OperationalError:
             return False
 
+    def is_super(self):
+        '''
+        This simple helper function detects if the current user is conencted as superuser.
+        '''
+        result = self.run_sql('select usesuper from pg_user where usename = CURRENT_USER;')
+        return result[0]['usesuper']
+
     def is_standby(self):
         '''
         This simple helper function detects if this instance is an standby.
@@ -214,8 +221,12 @@ class PGConnection():
             conninfo = self.run_sql('select conninfo from pg_stat_wal_receiver')
             conninfo = conninfo[0]['conninfo']
             dsn = connstr_to_dsn(conninfo)
-            return '{0}:{1}'.format(dsn['host'], dsn['port'])
+            if dsn:
+                return '{0}:{1}'.format(dsn['host'], dsn['port'])
+            # There is a record, but coll conninfo i empty. Not enough permissions.
+            return '?'
         except IndexError:
+            # Seems there is no record in pg_stat_wal_receiver. This is a master.
             return ''
 
     def current_time_lag_lsn(self):
@@ -228,7 +239,7 @@ class PGConnection():
             return {'now': None, 'lsn': None, 'lag_sec': None}
         result = self.run_sql('select now() as now, latest_end_lsn as lsn, '
                               'extract( epoch from now() - '
-                              'pg_last_xact_replay_timestamp()) as lag_sec '
+                              'pg_last_xact_replay_timestamp())::int as lag_sec '
                               'from pg_stat_wal_receiver')
         if result:
             return result[0]
@@ -262,9 +273,13 @@ class PGConnection():
             ret['role'] = 'Down'
             ret['upstream'] = ''
         try:
-            recoveryconf = self.recoveryconf()
-            ret['recovery_conf'] = True
-            ret['standby_mode'] = confbool_to_bool(recoveryconf.get('standby_mode'))
+            if self.is_super():
+                recoveryconf = self.recoveryconf()
+                ret['recovery_conf'] = True
+                ret['standby_mode'] = confbool_to_bool(recoveryconf.get('standby_mode'))
+            else:
+                ret['recovery_conf'] = '?'
+                ret['standby_mode'] = '?'
         except (AttributeError, psycopg2.OperationalError):
             ret['recovery_conf'] = False
             ret['standby_mode'] = None
@@ -332,6 +347,8 @@ class PGConnection():
     def recoveryconf(self):
         if self.__recoveryconf or self.__recoveryconf is False:
             return self.__recoveryconf
+        if not self.is_super():
+            return None
         try:
             result = self.run_sql("select pg_read_file('recovery.conf') as recoveryconf")
             self.__recoveryconf = ret = {}
@@ -478,7 +495,7 @@ class PGMultiConnection():
             if lag_info['lsn']:
                 lag_info['lag_bytes'] = max_lsn - lsn_to_xlogbyte(lag_info['lsn'])
             else:
-                lag_info['lag_bytes'] = None
+                lag_info['lag_bytes'] = '?'
         return ret
 
     def get_pg_version(self,):
@@ -502,9 +519,9 @@ def connstr_to_dsn(connstring=''):
     '''
     This function converts a dict with dsn params to a connstring.
     '''
-    connstring = connstring.strip()
     if not connstring:
         return {}
+    connstring = connstring.strip()
     return dict([kv.split('=', 1) for kv in connstring.split(' ')])
 
 
