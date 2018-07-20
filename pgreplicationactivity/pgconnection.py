@@ -210,15 +210,27 @@ class PGConnection():
         '''
         This method calculates the upstream server for a standby.
         '''
-        try:
+        if self.get_num_version() >= 90600:
             conninfo = self.run_sql('select conninfo from pg_stat_wal_receiver')
             conninfo = conninfo[0]['conninfo']
+        else:
+            # For pg 9.5, we cannot use pg_stat_wal_receiver, so we have to rely on
+            # accurateness of recovery.conf
+            recoveryconf = self.recoveryconf()
+            try:
+                conninfo = recoveryconf.get('primary_conninfo')
+            except (AttributeError, KeyError):
+                return '?'
+        try:
             dsn = connstr_to_dsn(conninfo)
-            if dsn:
-                return '{0}:{1}'.format(dsn['host'], dsn['port'])
-            # There is a record, but coll conninfo i empty. Not enough permissions.
-            return '?'
-        except IndexError:
+            if not dsn:
+                return '?'
+            if 'port' in dsn:
+                port = dsn['port']
+            else:
+                port = 5432
+            return '{0}:{1}'.format(dsn['host'], port)
+        except (IndexError, KeyError):
             # Seems there is no record in pg_stat_wal_receiver. This is a master.
             return ''
 
@@ -227,24 +239,24 @@ class PGConnection():
         This method resturns the local time, the lag (compared to local time)
         and the latest received lsn. We can use this info to display time drift.
         '''
-        # This works on a standby
         if not self.connected():
-            return {'now': None, 'lsn': None, 'lag_sec': None}
-        result = self.run_sql('select now() as now, latest_end_lsn as lsn, '
-                              'extract( epoch from now() - '
-                              'pg_last_xact_replay_timestamp())::int as lag_sec '
-                              'from pg_stat_wal_receiver')
-        if result:
-            pass
-        elif self.get_num_version() >= 100000:
-            # This works on a master. For PG10, we cannot use pg_current_xlog_location(),
-            # but should use pg_current_wal_lsn() instead
-            result = self.run_sql('select now() as now, pg_current_wal_lsn() as lsn, '
-                                  '0 as lag_sec')
+            return {'now': None, 'lsn': None, 'lag_sec': None, 'wal_sec': 0}
+
+        if self.is_standby():
+            # This works on a standby of 9.5
+            result = self.run_sql('select now() as now, pg_last_xlog_replay_location() as lsn, '
+                                  'extract( epoch from now() - '
+                                  'pg_last_xact_replay_timestamp())::int as lag_sec ')
         else:
-            # This works on a master. with a version lower than  PG10
-            result = self.run_sql('select now() as now, pg_current_xlog_location() as lsn, '
-                                  '0 as lag_sec from pg_stat_wal_receiver')
+            if self.get_num_version() >= 100000:
+                # This works on a master. For PG10, we cannot use pg_current_xlog_location(),
+                # but should use pg_current_wal_lsn() instead
+                result = self.run_sql('select now() as now, pg_current_wal_lsn() as lsn, '
+                                      '0 as lag_sec')
+            else:
+                # This works on a master. with a version lower than  PG10
+                result = self.run_sql('select now() as now, pg_current_xlog_location() as lsn, '
+                                  '0 as lag_sec')
         if result:
             result = result[0]
             newlsn, newepoch =  lsn_to_xlogbyte(result['lsn']), time.time()
@@ -275,16 +287,19 @@ class PGConnection():
             ret['role'] = 'Down'
             ret['upstream'] = ''
         try:
-            if self.is_super():
-                recoveryconf = self.recoveryconf()
+            recoveryconf = self.recoveryconf()
+            if recoveryconf:
                 ret['recovery_conf'] = True
                 ret['standby_mode'] = confbool_to_bool(recoveryconf.get('standby_mode'))
+                ret['replication_slot'] = recoveryconf.get('primary_slot_name', '').strip("\"' ")
+            elif recoveryconf == False:
+                ret['recovery_conf'] = ret['standby_mode'] = False
+                ret['replication_slot'] = ''
             else:
-                ret['recovery_conf'] = '?'
-                ret['standby_mode'] = '?'
+                ret['recovery_conf'] = ret['standby_mode'] = ret['replication_slot'] ='?'
         except (AttributeError, psycopg2.OperationalError):
-            ret['recovery_conf'] = False
-            ret['standby_mode'] = None
+            ret['recovery_conf'] = ret['standby_mode'] = False
+            ret['replication_slot'] = ''
         return ret
 
     def get_pg_version(self,):
@@ -521,7 +536,10 @@ def lsn_to_xlogbyte(lsn):
     in the wal stream.
     '''
     # Split by '/' character
-    xlogid, xrecoff = lsn.split('/')
+    try:
+        xlogid, xrecoff = lsn.split('/')
+    except AttributeError:
+        return 0
 
     # Convert both from hex to int
     xlogid = int(xlogid, 16)
