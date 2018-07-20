@@ -47,9 +47,11 @@ C_GRAY = 10
 PGTOP_FLAG_UPSTREAM = 1
 PGTOP_FLAG_RECCONF = 2
 PGTOP_FLAG_STBYMODE = 4
-PGTOP_FLAG_LAGS = 8
-PGTOP_FLAG_ROLE = 16
-PGTOP_FLAG_LAGB = 32
+PGTOP_FLAG_SLOT = 8
+PGTOP_FLAG_LAGS = 16
+PGTOP_FLAG_ROLE = 32
+PGTOP_FLAG_LAGB = 64
+PGTOP_FLAG_WALS = 128
 PGTOP_FLAG_NONE = None
 
 # Display query mode
@@ -109,6 +111,13 @@ PGTOP_COLS = {
             'name': 'LAG(B)',
             'template_h': '%10s ',
             'flag': PGTOP_FLAG_LAGB,
+            'mandatory': False
+        },
+        'wal_sec': {
+            'n':  9,
+            'name': 'WAL MB/s',
+            'template_h': '%10s ',
+            'flag': PGTOP_FLAG_WALS,
             'mandatory': False
         }
     }
@@ -268,6 +277,11 @@ class UI:
             },
             'lag_bytes': {
                 'default': self.__get_color(0),
+                'cursor':  self.__get_color(C_CYAN) | curses.A_REVERSE,
+                'yellow':  self.__get_color(C_YELLOW) | curses.A_BOLD
+            },
+            'wal_sec': {
+                'default': self.__get_color(C_CYAN),
                 'cursor':  self.__get_color(C_CYAN) | curses.A_REVERSE,
                 'yellow':  self.__get_color(C_YELLOW) | curses.A_BOLD
             },
@@ -1072,6 +1086,8 @@ class UI:
                 cols.append('lag_sec')
             if flag & PGTOP_FLAG_LAGB:
                 cols.append('lag_bytes')
+            if flag & PGTOP_FLAG_WALS:
+                cols.append('wal_sec')
             for col in cols:
                 word = PGTOP_COLS[self.mode][col]['template_h'] % \
                        (str(process[col])[:16],)
@@ -1105,7 +1121,11 @@ def get_flag_from_options(options):
     """
     Returns the flag depending on the options.
     """
+<<<<<<< HEAD
     flag = PGTOP_FLAG_UPSTREAM | PGTOP_FLAG_RECCONF | PGTOP_FLAG_STBYMODE | PGTOP_FLAG_ROLE | PGTOP_FLAG_LAGS | PGTOP_FLAG_LAGB
+=======
+    flag = PGTOP_FLAG_UPSTREAM | PGTOP_FLAG_RECCONF | PGTOP_FLAG_STBYMODE | PGTOP_FLAG_SLOT |  PGTOP_FLAG_ROLE | PGTOP_FLAG_LAGS | PGTOP_FLAG_LAGB | PGTOP_FLAG_WALS
+>>>>>>> 4bb1bac... Display wal MB/s (Closes #5)
     if options.nodb is True:
         flag -= PGTOP_FLAG_UPSTREAM
     if options.nouser is True:

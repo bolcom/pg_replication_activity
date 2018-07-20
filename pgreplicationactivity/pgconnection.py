@@ -27,6 +27,7 @@ import os
 from copy import copy
 import logging
 import re
+import time
 import psycopg2
 from psycopg2 import sql
 
@@ -59,6 +60,7 @@ class PGConnection():
         self.pg_version = None
         self.pg_num_version = None
         self.__recoveryconf = None
+        self.__wal_per_sec = None
 
     def connect(self, database: str = 'postgres'):
         '''
@@ -233,8 +235,8 @@ class PGConnection():
                               'pg_last_xact_replay_timestamp())::int as lag_sec '
                               'from pg_stat_wal_receiver')
         if result:
-            return result[0]
-        if self.get_num_version() >= 100000:
+            pass
+        elif self.get_num_version() >= 100000:
             # This works on a master. For PG10, we cannot use pg_current_xlog_location(),
             # but should use pg_current_wal_lsn() instead
             result = self.run_sql('select now() as now, pg_current_wal_lsn() as lsn, '
@@ -244,7 +246,16 @@ class PGConnection():
             result = self.run_sql('select now() as now, pg_current_xlog_location() as lsn, '
                                   '0 as lag_sec from pg_stat_wal_receiver')
         if result:
-            return result[0]
+            result = result[0]
+            newlsn, newepoch =  lsn_to_xlogbyte(result['lsn']), time.time()
+            result['lsn'] = newlsn
+            if self.__wal_per_sec:
+                oldlsn, oldepoch = self.__wal_per_sec
+                result['wal_sec'] = round((newlsn - oldlsn) / (newepoch - oldepoch) / 2**20, 3)
+            else:
+                result['wal_sec'] = 0
+            self.__wal_per_sec = (newlsn, newepoch)
+            return result
         raise PGConnectionException('Cannot determine current_time_lag_lsn')
 
     def get_standby_info(self):
@@ -464,7 +475,7 @@ class PGMultiConnection():
         # We now detect the latest LSN and now from all servers.
         # This will act as reference for drift and lag_bytes.
         max_now = max([li['now'] for li in ret if li['now']])
-        max_lsn = max([lsn_to_xlogbyte(li['lsn']) for li in ret if li['lsn']])
+        max_lsn = max([li['lsn'] for li in ret if li['lsn']])
         # Now just calculate drift and lag_bytes
         for lag_info in ret:
             if lag_info['now']:
@@ -472,7 +483,7 @@ class PGMultiConnection():
             else:
                 lag_info['drift'] = None
             if lag_info['lsn']:
-                lag_info['lag_bytes'] = max_lsn - lsn_to_xlogbyte(lag_info['lsn'])
+                lag_info['lag_bytes'] = max_lsn - lag_info['lsn']
             else:
                 lag_info['lag_bytes'] = '?'
         return ret
