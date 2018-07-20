@@ -32,6 +32,7 @@ import psycopg2
 
 RE_QUOTE=re.compile('''['"]''')
 
+LOGGER = logging.getLogger('pgconnection')
 
 class PGConnectionException(Exception):
     '''
@@ -123,10 +124,11 @@ class PGConnection():
         self.connect(database=database)
         cur = self.__conn[database].cursor()
         try:
-            logging.debug('query: %s', query)
+            LOGGER.debug('query: %s', query)
             cur.execute(query, parameters)
         except Exception as error:
-            logging.exception(str(error))
+            if LOGGER.getEffectiveLevel() <= logging.DEBUG:
+                LOGGER.exception(str(error))
             raise
         try:
             columns = [i[0] for i in cur.description]
