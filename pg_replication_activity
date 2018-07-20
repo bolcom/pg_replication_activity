@@ -29,6 +29,7 @@ import os
 import sys
 import signal
 import argparse
+import logging
 import socket
 import curses
 import psycopg2
@@ -109,8 +110,7 @@ def get_arguments():
             '--no-color',
             dest='nocolor',
             action='store_true',
-            help="Disable color usage.",
-            default='false')
+            help="Disable color usage.",)
         # --blocksize
         parser.add_argument(
             '--blocksize',
@@ -123,8 +123,7 @@ def get_arguments():
             '--rds',
             dest='rds',
             action='store_true',
-            help="Enable support for AWS RDS",
-            default='false')
+            help="Enable support for AWS RDS")
         group = parser.add_argument_group(
             "Display options",
             "Display Options, you can exclude some columns by using them ")
@@ -133,72 +132,62 @@ def get_arguments():
             '--no-database',
             dest='nodb',
             action='store_true',
-            help="Disable DATABASE.",
-            default='false')
+            help="Disable DATABASE.")
         # --no-user
         group.add_argument(
             '--no-user',
             dest='nouser',
             action='store_true',
-            help="Disable USER.",
-            default='false')
+            help="Disable USER.")
         # --no-client
         group.add_argument(
             '--no-client',
             dest='noclient',
             action='store_true',
-            help="Disable CLIENT.",
-            default='false')
+            help="Disable CLIENT.")
         # --no-cpu
         group.add_argument(
             '--no-cpu',
             dest='nocpu',
             action='store_true',
-            help="Disable CPU.",
-            default='false')
+            help="Disable CPU.")
         # --no-mem
         group.add_argument(
             '--no-mem',
             dest='nomem',
             action='store_true',
-            help="Disable MEM.",
-            default='false')
+            help="Disable MEM.")
         # --no-read
         group.add_argument(
             '--no-read',
             dest='noread',
             action='store_true',
-            help="Disable READ/s.",
-            default='false')
+            help="Disable READ/s.")
         # --no-write
         group.add_argument(
             '--no-write',
             dest='nowrite',
             action='store_true',
-            help="Disable WRITE/s.",
-            default='false')
+            help="Disable WRITE/s.")
         # --no-time
         group.add_argument(
             '--no-time',
             dest='notime',
             action='store_true',
-            help="Disable TIME+.",
-            default='false')
+            help="Disable TIME+.")
         # --no-wait
         group.add_argument(
             '--no-wait',
             dest='nowait',
             action='store_true',
-            help="Disable W.",
-            default='false')
+            help="Disable W.")
         # --debug
         parser.add_argument(
             '-x',
             '--debug',
             dest='debug',
             action='store_true',
-            help="Enable debug mode for traceback tracking.",
-            default='false')
+            help="Enable debug mode for traceback tracking.")
         args = parser.parse_args()
     except (argparse.ArgumentError, argparse.ArgumentTypeError) as err:
         print('pg_activity: error: %s' % str(err))
@@ -215,6 +204,11 @@ def main():
     Main procedure
     '''
     args = get_arguments()
+    if args.debug:
+        logging.basicConfig(level=logging.DEBUG)
+    else:
+        logging.basicConfig(level=logging.INFO)
+
     try:
         password = os.environ.get('PGPASSWORD')
         debug = args.debug
