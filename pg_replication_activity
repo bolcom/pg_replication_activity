@@ -54,56 +54,16 @@ def get_arguments():
         # Use argparse to handle devices as arguments
         description = 'htop like application for PostgreSQL replication ' + \
                       'activity monitoring.'
-        parser = argparse.ArgumentParser(description=description,
-                                         add_help=False)
-
-        # Only use --help for help, to preserve -h for --host
-        parser.add_argument(
-            '--help',
-            dest='help',
-            action='store_true',
-            help='show this help message and exit')
+        parser = argparse.ArgumentParser(description=description)
 
         # -c / --connectstring
         parser.add_argument(
             '-c',
             '--connectstring',
-            dest='constr',
+            dest='connstr',
             default='',
             help='Connectstring (default: "").',
             metavar='CONNECTSTRING')
-        # -U / --username
-        parser.add_argument(
-            '-U',
-            '--username',
-            dest='username',
-            default='',
-            help='Database user name (default: "").',
-            metavar='USERNAME')
-        # -p / --port
-        parser.add_argument(
-            '-p',
-            '--port',
-            dest='port',
-            default='',
-            help='Database server port (default: "").',
-            metavar='PORT')
-        # -h / --host
-        parser.add_argument(
-            '-h',
-            '--host',
-            dest='host',
-            default='',
-            help='Database server host or socket directory (default: "").',
-            metavar='HOSTNAME')
-        # -d / --dbname
-        parser.add_argument(
-            '-d',
-            '--dbname',
-            dest='dbname',
-            help='Database name to connect to (default: "").',
-            metavar='DBNAME',
-            default='')
         # -C / --no-color
         parser.add_argument(
             '-C',
@@ -111,19 +71,6 @@ def get_arguments():
             dest='nocolor',
             action='store_true',
             help="Disable color usage.",)
-        # --blocksize
-        parser.add_argument(
-            '--blocksize',
-            dest='blocksize',
-            help="Filesystem blocksize (default: 4096)",
-            metavar='BLOCKSIZE',
-            default=4096)
-        # --rds
-        parser.add_argument(
-            '--rds',
-            dest='rds',
-            action='store_true',
-            help="Enable support for AWS RDS")
         group = parser.add_argument_group(
             "Display options",
             "Display Options, you can exclude some columns by using them ")
@@ -193,9 +140,6 @@ def get_arguments():
         print('pg_activity: error: %s' % str(err))
         print('Try "pg_activity --help" for more information.')
         sys.exit(1)
-    if args.help:
-        parser.print_help()
-        sys.exit()
     return args
 
 
@@ -215,19 +159,7 @@ def main():
         nb_try = 0
         while nb_try < 2:
             try:
-                dsn = pgconnection.connstr_to_dsn(args.constr)
-                if args.host:
-                    dsn['host'] = args.host
-                if args.port:
-                    dsn['port'] = args.port
-                if args.username:
-                    print(args.username)
-                    dsn['user'] = args.username
-                if password:
-                    dsn['password'] = password
-                if args.dbname:
-                    dsn['dbname'] = args.dbname
-                print(dsn)
+                dsn = pgconnection.connstr_to_dsn(args.connstr)
                 PGAUI.data = pgconnection.PGMultiConnection(dsn)
                 PGAUI.data.connect()
                 break
@@ -249,6 +181,7 @@ def main():
                 else:
                     sys.exit("pg_activity: FATAL: %s" %
                              (UI.clean_str(str(err),)))
+        connstr = pgconnection.dsn_to_connstr({k:v for k,v in dsn.items() if k != 'password'})
 
         hostname = socket.gethostname()
         # top part
@@ -281,13 +214,8 @@ def main():
             # get active connections
             PGAUI.set_buffer({
                 'procs': disp_procs,
-                'extras': (
-                    PGAUI.data.get_pg_version(),
-                    hostname,
-                    args.username,
-                    args.host,
-                    args.port,
-                    args.dbname),
+                'conn_string': connstr,
+                'pg_version': PGAUI.data.get_pg_version(),
                 'flag': flag,
                 'indent': indent,
                 'io': delta_disk_io,
@@ -299,13 +227,8 @@ def main():
             # refresh
             PGAUI.refresh_window(
                 disp_procs,
-                (
-                    PGAUI.data.get_pg_version(),
-                    hostname,
-                    args.username,
-                    args.host,
-                    args.port,
-                    args.dbname),
+                PGAUI.data.get_pg_version(),
+                connstr,
                 flag,
                 indent,
                 delta_disk_io,

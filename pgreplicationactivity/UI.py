@@ -434,7 +434,7 @@ class UI:
                     self.check_window_size()
                     self.refresh_window(
                         self.uibuffer['procs'],
-                        self.uibuffer['extras'],
+                        self.uibuffer['conn_string'],
                         self.uibuffer['flag'],
                         self.uibuffer['indent'],
                         self.uibuffer['io'],
@@ -765,7 +765,8 @@ class UI:
             self.check_window_size()
             self.refresh_window(
                 self.uibuffer['procs'],
-                self.uibuffer['extras'],
+                self.uibuffer['pg_version'],
+                self.uibuffer['conn_string'],
                 self.uibuffer['flag'],
                 self.uibuffer['indent'],
                 self.uibuffer['io'],
@@ -864,32 +865,14 @@ class UI:
                 xpos += len(disp)
         self.lineno += 1
 
-    def __print_header(self, pg_version, hostname, user, host, port, database,
-                       ios, tps, active_connections, size_ev, total_size):
+    def __print_header(self, pg_version, conn_string, ios, tps, active_connections, size_ev, total_size):
         """
         Print window header
         """
         self.lineno = 0
         colno = 0
-        version = " %s" % (pg_version)
-        colno = self.__print_string(self.lineno, colno, version)
-        colno += self.__print_string(self.lineno, colno, " - ")
-        colno += self.__print_string(self.lineno, colno, hostname,
-                                     curses.A_BOLD)
-        colno += self.__print_string(self.lineno, colno, " - ")
-        colno += self.__print_string(self.lineno, colno, user,
-                                     self.__get_color(C_CYAN))
-        colno += self.__print_string(self.lineno, colno, "@")
-        colno += self.__print_string(self.lineno, colno, host,
-                                     self.__get_color(C_CYAN))
-        colno += self.__print_string(self.lineno, colno, ":")
-        colno += self.__print_string(self.lineno, colno, port,
-                                     self.__get_color(C_CYAN))
-        colno += self.__print_string(self.lineno, colno, "/")
-        colno += self.__print_string(self.lineno, colno, database,
-                                     self.__get_color(C_CYAN))
-        colno += self.__print_string(self.lineno, colno,
-                                     " - Ref.: %ss" % (self.refresh_time,))
+        line = "%s - '%s' - Ref.: %ss" % (pg_version, conn_string, self.refresh_time)
+        colno = self.__print_string(self.lineno, colno, line)
         colno = 0
         self.lineno += 1
         colno += self.__print_string(self.lineno, colno, "  Size: ")
@@ -1007,22 +990,17 @@ class UI:
         pos2 = self.__print_string(lineno, colno + pos1, ": %s" % (help_msg,))
         return colno + pos1 + pos2
 
-    def refresh_window(self, procs, extras, flag, indent, ios, tps,
+    def refresh_window(self, procs, pg_version, conn_string, flag, indent, ios, tps,
                        active_connections, size_ev, total_size):
         """
         Refresh the window
         """
 
         self.lines = []
-        (pg_version, hostname, user, host, port, dbname) = extras
         self.win.erase()
         self.__print_header(
             pg_version,
-            hostname,
-            user,
-            host,
-            port,
-            dbname,
+            conn_string,
             ios,
             tps,
             active_connections,

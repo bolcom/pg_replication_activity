@@ -53,24 +53,11 @@ class PGConnection():
         if not isinstance(dsn_params, dict) or not dsn_params:
             raise PGConnectionException('Init PGConnection class with a dict of '
                                         'connection parameters')
-        self.__dsn_params = dsn_params
+        self.__dsn_params = copy(dsn_params)
         self.__conn = {}
         self.pg_version = None
         self.pg_num_version = None
         self.__recoveryconf = None
-
-    def dsn(self, dsn_params=None):
-        '''
-        This method returns the DSN that is used for the current connection.
-        '''
-        if not dsn_params:
-            dsn_params = copy(self.__dsn_params)
-            for key in ['password', 'dbname']:
-                try:
-                    del dsn_params[key]
-                except KeyError:
-                    pass
-        return dsn_to_connstr(dsn_params)
 
     def connect(self, database: str = 'postgres'):
         '''
@@ -88,8 +75,8 @@ class PGConnection():
         dsn_params['dbname'] = database
 
         # Join {'host': '127.0.0.1', 'dbname': 'postgres'} into 'host=127.0.0.1 dbname=postgres'
-        dsn = self.dsn(dsn_params)
-        self.__conn[database] = conn = psycopg2.connect(dsn)
+        connstr = dsn_to_connstr(dsn_params)
+        self.__conn[database] = conn = psycopg2.connect(connstr)
         conn.autocommit = True
 
     def disconnect(self, database: str = ''):
@@ -377,21 +364,8 @@ class PGMultiConnection():
         if not isinstance(dsn_params, dict) or not dsn_params:
             raise PGConnectionException('Init PGConnection class with a dict of '
                                         'connection parameters')
-        self.__dsn_params = dsn_params
+        self.__dsn_params = copy(dsn_params)
         self.__conn = {}
-
-    def dsn(self, dsn_params=None):
-        '''
-        This method returns the DSN that is used for the current connection.
-        '''
-        if not dsn_params:
-            dsn_params = copy(self.__dsn_params)
-            for key in ['password', 'dbname']:
-                try:
-                    del dsn_params[key]
-                except KeyError:
-                    pass
-        return " ".join(["=".join((k, str(v))) for k, v in dsn_params.items()])
 
     def connect(self, database: str = 'postgres'):
         '''
