@@ -1,29 +1,56 @@
-import sys
+# Copyright (C) 2018 Sebastiaan Mannem
+#
+# This file is part of pg_replication_activity.
+#
+# pg_replication_activity is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# pg_replication_activity is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with pg_replication_activity.  If not, see <http://www.gnu.org/licenses/>.
 
-data_files = None
-for opt in sys.argv:
-    if opt == '--with-man':
-        data_files = [ ('/usr/share/man/man1', ['docs/man/pg_activity.1']) ]
-        sys.argv.remove(opt)
+'''
+This module installs pg_replication_activity as a binary.
+'''
 
-from setuptools import setup
+import codecs
+import os
+import re
+from setuptools import setup, find_packages
 
-if sys.version_info < (2, 6):
-    raise SystemExit('ERROR: pg_activity need at least python 2.6 to work.')
+INSTALL_REQUIREMENTS = [
+    'psycopg2-binary'
+]
+
+
+def find_version():
+    '''
+    This function reads the pg_replication_activity version from pg_replication_activity/__init__.py
+    '''
+    here = os.path.abspath(os.path.dirname(__file__))
+    with codecs.open(os.path.join(here, 'pg_replication_activity', '__init__.py'), 'r') as file_pointer:
+        version_file = file_pointer.read()
+    version_match = re.search(r"^__version__ = ['\"]([^'\"]*)['\"]",
+                              version_file, re.M)
+    if version_match:
+        return version_match.group(1)
+    raise RuntimeError("Unable to find version string.")
+
 
 setup(
-    name = 'pg_activity',
-    version = '1.4.0',
-    author = 'Julien Tachoires',
-    author_email = 'julmon@gmail.com',
-    scripts = ['pg_activity'],
-    packages = ['pgactivity'],
-    url = 'https://github.com/julmon/pg_activity',
-    license = 'LICENSE.txt',
-    description = 'Command line tool for PostgreSQL server activity monitoring.',
-    install_requires = [
-        "psutil >= 0.4.1",
-        "psycopg2 >= 2.2.1",
-    ],
-    data_files = data_files,
+    name='pg_replication_activity',
+    version=find_version(),
+    packages=find_packages(exclude=['contrib', 'docs', 'tests']),
+    install_requires=INSTALL_REQUIREMENTS,
+    entry_points={
+        'console_scripts': [
+            'pg_replication_activity=pg_replication_activity.pg_replication_activity:main',
+        ]
+    }
 )
