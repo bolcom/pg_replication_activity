@@ -318,7 +318,7 @@ def main():
 
     except curses.error as err:
         PGAUI.at_exit_curses()
-        if debug is True:
+        if debug:
             import traceback
             exc_type, exc_value, exc_traceback = sys.exc_info()
             traceback.print_exception(
@@ -333,7 +333,7 @@ def main():
     except Exception as err:
         PGAUI.at_exit_curses()
         # DEBUG
-        if args.debug is True:
+        if args.debug:
             import traceback
             exc_type, exc_value, exc_traceback = sys.exc_info()
             traceback.print_exception(
