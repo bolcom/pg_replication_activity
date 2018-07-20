@@ -1,6 +1,6 @@
 """
-pg__replication_activity
-author: Sebastiaan Mannem <sebas@mannem.nl>
+pg_replication_activity
+author: Sebastiaan Mannem <s.mannem@bol.com>
 license: PostgreSQL License
 
 Copyright (c) 2012 - 2018, S. Mannem
