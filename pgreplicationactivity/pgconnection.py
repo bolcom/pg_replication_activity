@@ -176,7 +176,7 @@ class PGConnection():
             return result[0]['ip']
         except psycopg2.OperationalError:
             pass
-        ip = self.__dsn_params.get('host', os.environ.get('PGHOST'))
+        ip = self.__dsn_params.get('host', os.environ.get('PGHOST', ''))
         if ',' in ip:
             # Multiple connections in dsn, so this is not one of the specific connections
             # Could not connect, so this non-specific connection did not connect
