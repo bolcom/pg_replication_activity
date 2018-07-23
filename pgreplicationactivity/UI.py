@@ -138,7 +138,7 @@ PGTOP_COLS = {
     }
 }
 
-SORT_KEYS = {'u': 'upstream', 's': 'slot', 'r': 'role', 'm': 'lag_sec', 'w': 'lag_bytes', 'l': 'lsn'}
+SORT_KEYS = {'u': 'upstream', 's': 'slot', 'r': 'role', 'm': 'lag_sec', 'w': 'lag_mb', 'l': 'lsn'}
 
 
 def bytes2human(num):
@@ -295,7 +295,7 @@ class UI:
                 'cursor':  self.__get_color(C_CYAN) | curses.A_REVERSE,
                 'yellow':  self.__get_color(C_YELLOW) | curses.A_BOLD
             },
-            'lag_bytes': {
+            'lag_mb': {
                 'default': self.__get_color(0),
                 'cursor':  self.__get_color(C_CYAN) | curses.A_REVERSE,
                 'yellow':  self.__get_color(C_YELLOW) | curses.A_BOLD
@@ -1109,7 +1109,7 @@ class UI:
             if flag & PGTOP_FLAG_LAGS:
                 cols.append('lag_sec')
             if flag & PGTOP_FLAG_LAGB:
-                cols.append('lag_bytes')
+                cols.append('lag_mb')
             if flag & PGTOP_FLAG_WALS:
                 cols.append('wal_sec')
             for col in cols:

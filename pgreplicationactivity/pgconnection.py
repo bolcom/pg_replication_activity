@@ -498,9 +498,9 @@ class PGMultiConnection():
             else:
                 lag_info['drift'] = None
             if lag_info['lsn_int']:
-                lag_info['lag_bytes'] = max_lsn - lag_info['lsn']
+                lag_info['lag_mb'] = round((max_lsn - lag_info['lsn_int'])/2**20,2)
             else:
-                lag_info['lag_bytes'] = '?'
+                lag_info['lag_mb'] = '?'
         return ret
 
     def get_pg_version(self,):
