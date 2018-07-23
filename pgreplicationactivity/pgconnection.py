@@ -221,9 +221,8 @@ class PGConnection():
             # For pg 9.5, we cannot use pg_stat_wal_receiver.
             # In those cases, we have to rely on accurateness of recovery.conf
             prefix='r'
-            recoveryconf = self.recoveryconf()
             try:
-                conninfo = recoveryconf.get('primary_conninfo').strip(''' '"''')
+                conninfo = self.__recoveryconf.get('primary_conninfo').strip(''' '"''')
             except (AttributeError, KeyError):
                 return '?'
         try:
@@ -372,8 +371,6 @@ class PGConnection():
         raise Exception('Undefined PostgreSQL version.')
 
     def recoveryconf(self):
-        if self.__recoveryconf or self.__recoveryconf is False:
-            return self.__recoveryconf
         if not self.is_super():
             return None
         try:
