@@ -189,6 +189,8 @@ def main():
                     nb_try += 1
                     password = UI.ask_password()
                 else:
+                    if args.debug:
+                        logging.exception(msg)
                     sys.exit("pg_activity: FATAL: %s" %
                              (UI.clean_str(str(err),)))
 
@@ -249,32 +251,16 @@ def main():
             )
             interval = 1
 
-    except curses.error as err:
-        PGAUI.at_exit_curses()
-        if debug:
-            import traceback
-            exc_type, exc_value, exc_traceback = sys.exc_info()
-            traceback.print_exception(
-                exc_type,
-                exc_value,
-                exc_traceback,
-                file=sys.stdout)
-        sys.exit("FATAL: %s" % (str(err),))
     except KeyboardInterrupt as err:
         PGAUI.at_exit_curses()
         sys.exit(1)
     except Exception as err:
         PGAUI.at_exit_curses()
+        msg = "FATAL: %s" % (str(err),)
         # DEBUG
         if args.debug:
-            import traceback
-            exc_type, exc_value, exc_traceback = sys.exc_info()
-            traceback.print_exception(
-                exc_type,
-                exc_value,
-                exc_traceback,
-                file=sys.stdout)
-        sys.exit("FATAL: %s" % (str(err),))
+            logging.exception()
+        sys.exit(msg)
 
 
 # Call the main function
