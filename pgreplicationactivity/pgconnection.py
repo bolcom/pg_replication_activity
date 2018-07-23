@@ -496,8 +496,15 @@ class PGMultiConnection():
             lag_info.update(connection.current_time_lag_lsn())
         # We now detect the latest LSN and now from all servers.
         # This will act as reference for drift and lag_bytes.
-        max_now = max([li['now'] for li in ret if li['now']])
-        max_lsn = max([li['lsn_int'] for li in ret if li['lsn_int']])
+        try:
+            max_now = max([li['now'] for li in ret if li['now']])
+        except ValueError:
+            max_now = None
+        try:
+            max_lsn = max([li['lsn_int'] for li in ret if li['lsn_int']])
+        except ValueError:
+            max_lsn = None
+
         # Now just calculate drift and lag_bytes
         for lag_info in ret:
             if lag_info['now']:
