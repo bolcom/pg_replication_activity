@@ -168,6 +168,8 @@ def main():
         while nb_try < 2:
             try:
                 dsn = pgconnection.connstr_to_dsn(args.connstr)
+                if password and nb_try > 0:
+                    dsn['password'] = password
                 PGAUI.data = pgconnection.PGMultiConnection(dsn, args.role)
                 PGAUI.data.connect()
                 break
