@@ -45,13 +45,14 @@ C_GRAY = 10
 
 # Columns
 PGTOP_FLAG_UPSTREAM = 1
-PGTOP_FLAG_RECCONF = 2
-PGTOP_FLAG_STBYMODE = 4
-PGTOP_FLAG_SLOT = 8
-PGTOP_FLAG_LAGS = 16
-PGTOP_FLAG_ROLE = 32
-PGTOP_FLAG_LAGB = 64
-PGTOP_FLAG_WALS = 128
+PGTOP_FLAG_LSN = 2
+PGTOP_FLAG_RECCONF = 4
+PGTOP_FLAG_STBYMODE = 8
+PGTOP_FLAG_SLOT = 16
+PGTOP_FLAG_LAGS = 32
+PGTOP_FLAG_ROLE = 64
+PGTOP_FLAG_LAGB = 128
+PGTOP_FLAG_WALS = 256
 PGTOP_FLAG_NONE = None
 
 # Display query mode
@@ -85,36 +86,50 @@ PGTOP_COLS = {
             'flag': PGTOP_FLAG_UPSTREAM,
             'mandatory': False
         },
-        'recovery_conf': {
+        'lsn': {
             'n':  4,
+            'name': 'LSN',
+            'template_h': '%-13s ',
+            'flag': PGTOP_FLAG_LSN,
+            'mandatory': False
+        },
+        'recovery_conf': {
+            'n':  5,
             'name': 'REC_CONF',
             'template_h': '%-10s ',
             'flag': PGTOP_FLAG_RECCONF,
             'mandatory': False
         },
         'standby_mode': {
-            'n':  5,
+            'n':  6,
             'name': 'STBY_MODE',
             'template_h': '%-10s ',
             'flag': PGTOP_FLAG_STBYMODE,
             'mandatory': False
         },
+        'replication_slot': {
+            'n':  7,
+            'name': 'SLOT',
+            'template_h': '%-10s ',
+            'flag': PGTOP_FLAG_SLOT,
+            'mandatory': False
+        },
         'lag_sec': {
-            'n':  6,
+            'n':  8,
             'name': 'LAG(s)',
             'template_h': '%10s ',
             'flag': PGTOP_FLAG_LAGS,
             'mandatory': False
         },
-        'lag_bytes': {
-            'n':  7,
-            'name': 'LAG(B)',
+        'lag_mb': {
+            'n':  9,
+            'name': 'LAG(MB)',
             'template_h': '%10s ',
             'flag': PGTOP_FLAG_LAGB,
             'mandatory': False
         },
         'wal_sec': {
-            'n':  9,
+            'n':  10,
             'name': 'WAL MB/s',
             'template_h': '%10s ',
             'flag': PGTOP_FLAG_WALS,
@@ -123,7 +138,7 @@ PGTOP_COLS = {
     }
 }
 
-SORT_KEYS = {'u': 'upstream', 'r': 'role', 'm': 'lag_sec', 'w': 'lag_bytes'}
+SORT_KEYS = {'u': 'upstream', 's': 'slot', 'r': 'role', 'm': 'lag_sec', 'w': 'lag_bytes', 'l': 'lsn'}
 
 
 def bytes2human(num):
@@ -251,6 +266,11 @@ class UI:
                 'yellow':  self.__get_color(C_YELLOW) | curses.A_BOLD
             },
             'upstream': {
+                'default': curses.A_BOLD | self.__get_color(C_GRAY),
+                'cursor':  self.__get_color(C_CYAN) | curses.A_REVERSE,
+                'yellow':  self.__get_color(C_YELLOW) | curses.A_BOLD
+            },
+            'lsn': {
                 'default': curses.A_BOLD | self.__get_color(C_GRAY),
                 'cursor':  self.__get_color(C_CYAN) | curses.A_REVERSE,
                 'yellow':  self.__get_color(C_YELLOW) | curses.A_BOLD
@@ -976,6 +996,8 @@ class UI:
                                 "decrease refresh time (min:1)")
         self.__display_help_key(self.lineno, 45, "      u",
                                 "sort by UPSTREAM desc. (activities)")
+        self.__display_help_key(self.lineno, 45, "      l",
+                                "sort by LSN desc. (lsn)")
         self.lineno += 1
         self.__display_help_key(self.lineno, 0, "      R", "force refresh")
         self.lineno += 1
@@ -1078,6 +1100,8 @@ class UI:
                 colno += self.__print_string(l_lineno, colno, word, color)
             if flag & PGTOP_FLAG_UPSTREAM:
                 cols.append('upstream')
+            if flag & PGTOP_FLAG_LSN:
+                cols.append('lsn')
             if flag & PGTOP_FLAG_RECCONF:
                 cols.append('recovery_conf')
             if flag & PGTOP_FLAG_STBYMODE:
@@ -1121,11 +1145,7 @@ def get_flag_from_options(options):
     """
     Returns the flag depending on the options.
     """
-<<<<<<< HEAD
-    flag = PGTOP_FLAG_UPSTREAM | PGTOP_FLAG_RECCONF | PGTOP_FLAG_STBYMODE | PGTOP_FLAG_ROLE | PGTOP_FLAG_LAGS | PGTOP_FLAG_LAGB
-=======
-    flag = PGTOP_FLAG_UPSTREAM | PGTOP_FLAG_RECCONF | PGTOP_FLAG_STBYMODE | PGTOP_FLAG_SLOT |  PGTOP_FLAG_ROLE | PGTOP_FLAG_LAGS | PGTOP_FLAG_LAGB | PGTOP_FLAG_WALS
->>>>>>> 4bb1bac... Display wal MB/s (Closes #5)
+    flag = PGTOP_FLAG_UPSTREAM | PGTOP_FLAG_LSN | PGTOP_FLAG_RECCONF | PGTOP_FLAG_STBYMODE | PGTOP_FLAG_SLOT |  PGTOP_FLAG_ROLE | PGTOP_FLAG_LAGS | PGTOP_FLAG_LAGB | PGTOP_FLAG_WALS
     if options.nodb is True:
         flag -= PGTOP_FLAG_UPSTREAM
     if options.nouser is True:

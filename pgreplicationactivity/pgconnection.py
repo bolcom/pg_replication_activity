@@ -240,7 +240,7 @@ class PGConnection():
         and the latest received lsn. We can use this info to display time drift.
         '''
         if not self.connected():
-            return {'now': None, 'lsn': None, 'lag_sec': None, 'wal_sec': 0}
+            return {'now': None, 'lsn_int': 0, 'lsn': None, 'lag_sec': None, 'wal_sec': 0}
 
         if self.is_standby():
             # This works on a standby of 9.5
@@ -260,7 +260,7 @@ class PGConnection():
         if result:
             result = result[0]
             newlsn, newepoch =  lsn_to_xlogbyte(result['lsn']), time.time()
-            result['lsn'] = newlsn
+            result['lsn_int'] = newlsn
             if self.__wal_per_sec:
                 oldlsn, oldepoch = self.__wal_per_sec
                 result['wal_sec'] = round((newlsn - oldlsn) / (newepoch - oldepoch) / 2**20, 3)
@@ -490,14 +490,14 @@ class PGMultiConnection():
         # We now detect the latest LSN and now from all servers.
         # This will act as reference for drift and lag_bytes.
         max_now = max([li['now'] for li in ret if li['now']])
-        max_lsn = max([li['lsn'] for li in ret if li['lsn']])
+        max_lsn = max([li['lsn_int'] for li in ret if li['lsn_int']])
         # Now just calculate drift and lag_bytes
         for lag_info in ret:
             if lag_info['now']:
                 lag_info['drift'] = max_now - lag_info['now']
             else:
                 lag_info['drift'] = None
-            if lag_info['lsn']:
+            if lag_info['lsn_int']:
                 lag_info['lag_bytes'] = max_lsn - lag_info['lsn']
             else:
                 lag_info['lag_bytes'] = '?'
