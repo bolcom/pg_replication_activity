@@ -210,12 +210,17 @@ class PGConnection():
         '''
         This method calculates the upstream server for a standby.
         '''
+        conninfo = None
+        prefix='v'
         if self.get_num_version() >= 90600:
             conninfo = self.run_sql('select conninfo from pg_stat_wal_receiver')
-            conninfo = conninfo[0]['conninfo']
-        else:
-            # For pg 9.5, we cannot use pg_stat_wal_receiver, so we have to rely on
-            # accurateness of recovery.conf
+            if conninfo:
+                conninfo = conninfo[0]['conninfo']
+        if not conninfo:
+            # if there is no line in pg_stat_wal_receiver, there is no receiver.
+            # For pg 9.5, we cannot use pg_stat_wal_receiver.
+            # In those cases, we have to rely on accurateness of recovery.conf
+            prefix='r'
             recoveryconf = self.recoveryconf()
             try:
                 conninfo = recoveryconf.get('primary_conninfo').strip(''' '"''')
@@ -243,10 +248,15 @@ class PGConnection():
             return {'now': None, 'lsn_int': 0, 'lsn': None, 'lag_sec': None, 'wal_sec': 0}
 
         if self.is_standby():
-            # This works on a standby of 9.5
-            result = self.run_sql('select now() as now, pg_last_xlog_replay_location() as lsn, '
-                                  'extract( epoch from now() - '
-                                  'pg_last_xact_replay_timestamp())::int as lag_sec ')
+            if self.get_num_version() >= 100000:
+                result = self.run_sql('select now() as now, pg_last_wal_replay_lsn() as lsn, '
+                                      'extract( epoch from now() - '
+                                      'pg_last_xact_replay_timestamp())::int as lag_sec ')
+            else:
+                # This works on a standby of 9.5
+                result = self.run_sql('select now() as now, pg_last_xlog_replay_location() as lsn, '
+                                      'extract( epoch from now() - '
+                                      'pg_last_xact_replay_timestamp())::int as lag_sec ')
         else:
             if self.get_num_version() >= 100000:
                 # This works on a master. For PG10, we cannot use pg_current_xlog_location(),
@@ -268,7 +278,7 @@ class PGConnection():
                 result['wal_sec'] = 0
             self.__wal_per_sec = (newlsn, newepoch)
             return result
-        raise PGConnectionException('Cannot determine current_time_lag_lsn')
+        return {'now': None, 'lsn_int': 0, 'lsn': None, 'lag_sec': None, 'wal_sec': 0}
 
     def get_standby_info(self):
         '''
