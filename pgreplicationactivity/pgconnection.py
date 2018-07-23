@@ -218,7 +218,7 @@ class PGConnection():
             # accurateness of recovery.conf
             recoveryconf = self.recoveryconf()
             try:
-                conninfo = recoveryconf.get('primary_conninfo')
+                conninfo = recoveryconf.get('primary_conninfo').strip(''' '"''')
             except (AttributeError, KeyError):
                 return '?'
         try:
@@ -229,8 +229,8 @@ class PGConnection():
                 port = dsn['port']
             else:
                 port = 5432
-            return '{0}:{1}'.format(dsn['host'], port)
-        except (IndexError, KeyError):
+            return '{0}: {1}:{2}'.format(prefix, dsn['host'], port)
+        except KeyError:
             # Seems there is no record in pg_stat_wal_receiver. This is a master.
             return ''
 

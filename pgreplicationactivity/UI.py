@@ -82,7 +82,7 @@ PGTOP_COLS = {
         'upstream': {
             'n':  3,
             'name': 'UPSTREAM',
-            'template_h': '%-25s ',
+            'template_h': '%-40s ',
             'flag': PGTOP_FLAG_UPSTREAM,
             'mandatory': False
         },
@@ -1114,7 +1114,7 @@ class UI:
                 cols.append('wal_sec')
             for col in cols:
                 word = PGTOP_COLS[self.mode][col]['template_h'] % \
-                       (str(process[col])[:16],)
+                       (str(process[col[:35]]),)
                 color = self.line_colors[col][typecolor]
                 colno += self.__print_string(l_lineno, colno, word, color)
         self.lineno += 1
