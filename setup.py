@@ -34,7 +34,8 @@ def find_version():
     This function reads the pg_replication_activity version from pg_replication_activity/__init__.py
     '''
     here = os.path.abspath(os.path.dirname(__file__))
-    with codecs.open(os.path.join(here, 'pg_replication_activity', '__init__.py'), 'r') as file_pointer:
+    init_path = os.path.join(here, 'pgreplicationactivity', '__init__.py')
+    with codecs.open(init_path, 'r') as file_pointer:
         version_file = file_pointer.read()
     version_match = re.search(r"^__version__ = ['\"]([^'\"]*)['\"]",
                               version_file, re.M)
@@ -50,7 +51,7 @@ setup(
     install_requires=INSTALL_REQUIREMENTS,
     entry_points={
         'console_scripts': [
-            'pg_replication_activity=pg_replication_activity.pg_replication_activity:main',
+            'pg_replication_activity=pgreplicationactivity.pg_replication_activity:main',
         ]
     }
 )

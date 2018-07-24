@@ -155,6 +155,7 @@ def main():
     '''
     Main procedure
     '''
+    signal.signal(signal.SIGTERM, PGAUI.signal_handler)
     args = get_arguments()
     if args.debug:
         logging.basicConfig(level=logging.DEBUG)
@@ -261,9 +262,3 @@ def main():
         if args.debug:
             logging.exception()
         sys.exit(msg)
-
-
-# Call the main function
-if __name__ == '__main__':
-    signal.signal(signal.SIGTERM, PGAUI.signal_handler)
-    main()

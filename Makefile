@@ -1,32 +1,36 @@
 # Copyright (C) 2018
 #
-# This file is part of switchovertest.
+# This file is part of pg_replication_activity.
 #
-# switchovertest is free software: you can redistribute it and/or modify
+# pg_replication_activity is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
 #
-# switchovertest is distributed in the hope that it will be useful,
+# pg_replication_activity is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License
-# along with switchovertest.  If not, see <http://www.gnu.org/licenses/>.
+# along with pg_replication_activity.  If not, see <http://www.gnu.org/licenses/>.
 
-COMPOSENAME := $(shell basename ${PWD})
-
-all: clean run
+all: clean test build tag push
+all-latest: clean test build tag-latest push-latest
+test: test-flake8 test-pylint test-coverage
 
 clean:
-	docker-compose kill || echo "Error"
-	docker-compose rm -f || echo "Error"
-	docker rmi ${COMPOSENAME}_master:latest ${COMPOSENAME}_standby:latest ${COMPOSENAME}_tester:latest || echo "Error"
-	docker network rm ${COMPOSENAME}_postgres || echo "Error"
+	rm -rf pg_replication_activity.egg-info/
 
-run:
-	docker-compose up -d
+setup:
+	pip install --no-cache-dir .
 
-switchover:
-	./switchover.sh ${COMPOSENAME}_standby_1 ${COMPOSENAME}_master_1
+test-flake8:
+	flake8 .
+
+test-pylint:
+	pylint *.py pgreplicationactivity tests
+
+test-coverage:
+	coverage run --source pgreplicationactivity setup.py test
+	coverage report -m
