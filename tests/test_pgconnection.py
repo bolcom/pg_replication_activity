@@ -23,32 +23,13 @@ class PGConnectionTest(unittest.TestCase):
         '''
         Test PGConnection.init for normal functionality
         '''
-        sslkey = '~/sslkey'
-        normalized_sslkey_path = os.path.expanduser(sslkey)
-        sslkey_exists = os.path.exists(normalized_sslkey_path)
-        _dummy, missingkeyfile = tempfile.mkstemp()
-        os.remove(missingkeyfile)
-
         with unittest.mock.patch('psycopg2.connect') as mock_connect:
-            if not sslkey_exists:
-                with open(normalized_sslkey_path, 'w') as sslkey_file:
-                    sslkey_file.write('blaat')
-
             mock_con = mock_connect.return_value
             mock_con.closed = False
-            pgconn = PGConnection(dsn_params={'server': ['server1', 'server2'],
-                                              'sslkey': missingkeyfile})
+            pgconn = PGConnection(dsn_params={'server': ['server1', 'server2']})
             pgconn.connect()
-            pgconn = PGConnection(dsn_params={'server': ['server1', 'server2'], 'sslkey': sslkey})
-            pgconn.connect()
-            pgconn.connect()
-            # Test with correct permissions
-            pgconn = PGConnection(dsn_params={'server': ['server1', 'server2'], 'sslkey': sslkey})
-            os.chmod(normalized_sslkey_path, 0o600)
             pgconn.connect()
             self.assertIsInstance(pgconn, PGConnection)
-            if not sslkey_exists:
-                os.remove(normalized_sslkey_path)
         expected_msg = 'Init PGConnection class with a dict of connection parameters'
         with self.assertRaises(PGConnectionException, msg=expected_msg):
             pgconn = PGConnection(dsn_params='')
@@ -74,7 +55,7 @@ class PGConnectionTest(unittest.TestCase):
             mock_cur = mock_con.cursor.return_value
             mock_cur.description = query_header
             mock_cur.fetchall.return_value = query_result
-            result = PGConnection(dsn_params={'server': 'server1'}).run_sql(test_qry)
+            result = PGConnection(dsn_params={'server': 'server1'}, role='myrole').run_sql(test_qry)
             mock_connect.assert_called_with(expected_connstr)
             mock_cur.execute.assert_called_with(test_qry, None)
             self.assertEqual(result, expected_result)

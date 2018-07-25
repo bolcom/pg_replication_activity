@@ -21,6 +21,9 @@ test: test-flake8 test-pylint test-coverage
 
 clean:
 	rm -rf pg_replication_activity.egg-info/
+	docker kill pgra_builder || echo 'pgra_builder was not running'
+	docker rmi pgra_builder:f28 || echo 'Image was not there'
+	docker rmi pgra_builder:c7 || echo 'Image was not there'
 
 setup:
 	pip install --no-cache-dir .
@@ -34,3 +37,29 @@ test-pylint:
 test-coverage:
 	coverage run --source pgreplicationactivity setup.py test
 	coverage report -m
+
+docker-images: docker-image-f28 docker-image-c7
+
+docker-image-f28:
+	docker build -t pgra_builder:f28 -f docker/Docker.f28 docker
+
+docker-image-c7:
+	docker build -t pgra_builder:c7 -f docker/Docker.c7 docker
+
+rpms: rpm-f28 rpm-c7
+
+rpm-f28:
+	docker kill pgra_builder || echo 'pgra_builder was not running'
+	docker run -d --rm --name pgra_builder -v $$PWD:/pgreplicationactivity pgra_builder:f28 sleep 86400
+	docker exec pgra_builder /pgreplicationactivity/rpmspec/build.sh
+	mkdir -p rpms
+	docker exec pgra_builder find /home/rpmbuild/rpmbuild/ -name '*.rpm' | while read rpm; do docker cp "pgra_builder:$$rpm" ./rpms; done
+	docker kill pgra_builder
+
+rpm-c7:
+	docker kill pgra_builder || echo 'pgra_builder was not running'
+	docker run -d --rm --name pgra_builder -v $$PWD:/pgreplicationactivity pgra_builder:c7 sleep 86400
+	docker exec pgra_builder /pgreplicationactivity/rpmspec/build.sh
+	mkdir -p rpms
+	docker exec pgra_builder find /home/rpmbuild/rpmbuild/ -name '*.rpm' | while read rpm; do docker cp "pgra_builder:$$rpm" ./rpms; done
+	docker kill pgra_builder

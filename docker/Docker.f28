@@ -1,0 +1,6 @@
+FROM fedora:28
+RUN dnf update -y && \
+dnf groupinstall -y "Development Tools" "Development Libraries" && \
+dnf install -y rpm-build python3-devel
+RUN useradd -m -u 2000 rpmbuild
+USER 2000

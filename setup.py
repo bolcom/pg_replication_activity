@@ -25,7 +25,7 @@ import re
 from setuptools import setup, find_packages
 
 INSTALL_REQUIREMENTS = [
-    'psycopg2-binary<=2.7.5'
+    'psycopg2<=2.7.5'
 ]
 
 

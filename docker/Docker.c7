@@ -1,0 +1,7 @@
+FROM centos:7
+RUN yum install -y epel-release && \
+yum update -y && \
+yum groupinstall -y "Development Tools" "Development Libraries" && \
+yum install -y rpm-build python34 python34-devel python34-setuptools
+RUN useradd -m -u 2000 rpmbuild
+USER 2000
