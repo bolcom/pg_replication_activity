@@ -79,63 +79,6 @@ def get_arguments():
             dest='nocolor',
             action='store_true',
             help="Disable color usage.",)
-        group = parser.add_argument_group(
-            "Display options",
-            "Display Options, you can exclude some columns by using them ")
-        # --no-database
-        group.add_argument(
-            '--no-database',
-            dest='nodb',
-            action='store_true',
-            help="Disable DATABASE.")
-        # --no-user
-        group.add_argument(
-            '--no-user',
-            dest='nouser',
-            action='store_true',
-            help="Disable USER.")
-        # --no-client
-        group.add_argument(
-            '--no-client',
-            dest='noclient',
-            action='store_true',
-            help="Disable CLIENT.")
-        # --no-cpu
-        group.add_argument(
-            '--no-cpu',
-            dest='nocpu',
-            action='store_true',
-            help="Disable CPU.")
-        # --no-mem
-        group.add_argument(
-            '--no-mem',
-            dest='nomem',
-            action='store_true',
-            help="Disable MEM.")
-        # --no-read
-        group.add_argument(
-            '--no-read',
-            dest='noread',
-            action='store_true',
-            help="Disable READ/s.")
-        # --no-write
-        group.add_argument(
-            '--no-write',
-            dest='nowrite',
-            action='store_true',
-            help="Disable WRITE/s.")
-        # --no-time
-        group.add_argument(
-            '--no-time',
-            dest='notime',
-            action='store_true',
-            help="Disable TIME+.")
-        # --no-wait
-        group.add_argument(
-            '--no-wait',
-            dest='nowait',
-            action='store_true',
-            help="Disable W.")
         # --debug
         parser.add_argument(
             '-x',

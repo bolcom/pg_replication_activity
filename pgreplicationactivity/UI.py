@@ -1146,12 +1146,4 @@ def get_flag_from_options(options):
     Returns the flag depending on the options.
     """
     flag = PGTOP_FLAG_UPSTREAM | PGTOP_FLAG_LSN | PGTOP_FLAG_RECCONF | PGTOP_FLAG_STBYMODE | PGTOP_FLAG_SLOT |  PGTOP_FLAG_ROLE | PGTOP_FLAG_LAGS | PGTOP_FLAG_LAGB | PGTOP_FLAG_WALS
-    if options.nodb is True:
-        flag -= PGTOP_FLAG_UPSTREAM
-    if options.nouser is True:
-        flag -= PGTOP_FLAG_ROLE
-    if options.nocpu is True:
-        flag -= PGTOP_FLAG_LAGB
-    if options.noclient is True:
-        flag -= PGTOP_FLAG_LAGS
     return flag
