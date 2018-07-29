@@ -15,18 +15,23 @@
 # You should have received a copy of the GNU General Public License
 # along with pg_replication_activity.  If not, see <http://www.gnu.org/licenses/>.
 
-all: clean test build tag push
-all-latest: clean test build tag-latest push-latest
-test: test-flake8 test-pylint test-coverage
+all: clean test setup images rpms
 
-clean:
+clean: clean-python clean-images
+
+clean-python:
+	find . -name "__pycache__" -exec rm -r "{}" \;
 	rm -rf pg_replication_activity.egg-info/
+
+clean-images:
 	docker kill pgra_builder || echo 'pgra_builder was not running'
 	docker rmi pgra_builder:f28 || echo 'Image was not there'
 	docker rmi pgra_builder:c7 || echo 'Image was not there'
 
 setup:
 	pip install --no-cache-dir .
+
+test: test-flake8 test-pylint test-coverage
 
 test-flake8:
 	flake8 .
@@ -38,12 +43,12 @@ test-coverage:
 	coverage run --source pgreplicationactivity setup.py test
 	coverage report -m
 
-docker-images: docker-image-f28 docker-image-c7
+images: image-f28 image-c7
 
-docker-image-f28:
+image-f28:
 	docker build -t pgra_builder:f28 -f docker/Docker.f28 docker
 
-docker-image-c7:
+image-c7:
 	docker build -t pgra_builder:c7 -f docker/Docker.c7 docker
 
 rpms: rpm-f28 rpm-c7
