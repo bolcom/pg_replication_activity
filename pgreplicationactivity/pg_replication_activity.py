@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 """
-pg__replication_activity
+This module is the starting point for pg_replication_activity.
+
+module: pg_replication_activity
 author: Sebastiaan Mannem <sebas@mannem.nl>
 license: PostgreSQL License
 
@@ -30,26 +32,20 @@ import sys
 import signal
 import argparse
 import logging
-import socket
-import curses
 import psycopg2
 from psycopg2 import errorcodes
 
 from pgreplicationactivity import UI, pgconnection
 
-PGTOP_VERSION = "0.0.1"
-
 if os.name != 'posix':
     sys.exit("FATAL: Platform not supported.")
 
 # Create the UI
-PGAUI = UI.UI(PGTOP_VERSION)
+PGAUI = UI.UI()
 
 
 def get_arguments():
-    """
-    Run argparse and return arguments
-    """
+    """Run argparse and return arguments."""
     try:
         # Use argparse to handle devices as arguments
         description = 'htop like application for PostgreSQL replication ' + \
@@ -95,9 +91,7 @@ def get_arguments():
 
 
 def main():
-    '''
-    Main procedure
-    '''
+    """Run the main entrypoint."""
     signal.signal(signal.SIGTERM, PGAUI.signal_handler)
     args = get_arguments()
     if args.debug:
@@ -106,49 +100,15 @@ def main():
         logging.basicConfig(level=logging.INFO)
 
     try:
-        password = os.environ.get('PGPASSWORD')
-        debug = args.debug
-        nb_try = 0
-        while nb_try < 2:
-            try:
-                dsn = pgconnection.connstr_to_dsn(args.connstr)
-                if password and nb_try > 0:
-                    dsn['password'] = password
-                PGAUI.data = pgconnection.PGMultiConnection(dsn, args.role)
-                PGAUI.data.connect()
-                break
-            except psycopg2.OperationalError as err:
-                msg = str(err).strip()
-                if msg.startswith("FATAL:  password authentication failed "
-                                  "for user"):
-                    is_password_error = True
-                elif err.pgcode == errorcodes.INVALID_PASSWORD:
-                    is_password_error = True
-                elif msg == "fe_sendauth: no password supplied":
-                    is_password_error = True
-                else:
-                    is_password_error = False
-
-                if is_password_error and nb_try < 1:
-                    nb_try += 1
-                    password = UI.ask_password()
-                else:
-                    if args.debug:
-                        logging.exception(msg)
-                    sys.exit("pg_activity: FATAL: %s" %
-                             (UI.clean_str(str(err),)))
-
-        connstr = pgconnection.dsn_to_connstr({k:v for k,v in dsn.items() if k != 'password'})
-        hostname = socket.gethostname()
+        connstr = try_connecting(args)
         # top part
         interval = 0
         if PGAUI.get_mode() == 'lag':
             lag_info = PGAUI.data.get_standby_info()
         # draw the flag
-        flag = UI.get_flag_from_options(args)
+        flag = UI.get_flag_from_options()
         # main loop
         disp_procs = None
-        delta_disk_io = {'write_bytes': 0, 'read_bytes': 0, 'read_count': 0, 'write_count': 0}
         # indentation
         indent = PGAUI.get_indent(flag)
         # Init curses
@@ -174,25 +134,13 @@ def main():
                 'pg_version': PGAUI.data.get_pg_version(),
                 'flag': flag,
                 'indent': indent,
-                'io': delta_disk_io,
                 'tps': 9,
                 'active_connections': 10,
                 'size_ev': 100,
                 'total_size': 1000
             })
             # refresh
-            PGAUI.refresh_window(
-                disp_procs,
-                PGAUI.data.get_pg_version(),
-                connstr,
-                flag,
-                indent,
-                delta_disk_io,
-                9,
-                10,
-                100,
-                1000
-            )
+            PGAUI.refresh_window()
             interval = 1
 
     except KeyboardInterrupt as err:
@@ -200,8 +148,46 @@ def main():
         sys.exit(1)
     except Exception as err:
         PGAUI.at_exit_curses()
-        msg = "FATAL: %s" % (str(err),)
         # DEBUG
         if args.debug:
-            logging.exception()
-        sys.exit(msg)
+            logging.exception("FATAL: %s", str(err))
+        sys.exit("FATAL: %s" % (str(err)))
+
+
+def check_for_password_error(err):
+    """Check if an error is a password error."""
+    msg = str(err).strip()
+    if msg.startswith("FATAL:  password authentication failed "
+                      "for user"):
+        return True
+    if err.pgcode == errorcodes.INVALID_PASSWORD:
+        return True
+    if msg == "fe_sendauth: no password supplied":
+        return True
+    return False
+
+
+def try_connecting(args):
+    """Try connecting and retry with password if needed."""
+    password = os.environ.get('PGPASSWORD')
+    nb_try = 0
+    while nb_try < 2:
+        try:
+            dsn = pgconnection.connstr_to_dsn(args.connstr)
+            if password and nb_try > 0:
+                dsn['password'] = password
+            PGAUI.data = pgconnection.PGMultiConnection(dsn, args.role)
+            PGAUI.data.connect()
+            break
+        except psycopg2.OperationalError as err:
+            is_password_error = check_for_password_error(err)
+            if is_password_error and nb_try < 1:
+                nb_try += 1
+                password = UI.ask_password()
+            else:
+                if args.debug:
+                    logging.exception(str(err).strip())
+                sys.exit("pg_activity: FATAL: %s" %
+                         (UI.clean_str(str(err),)))
+
+    return pgconnection.dsn_to_connstr({k: v for k, v in dsn.items() if k != 'password'})

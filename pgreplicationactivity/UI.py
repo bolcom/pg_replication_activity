@@ -1,5 +1,8 @@
 """
-pg__replication_activity
+This module handles all UI functionality.
+
+module: pgreplicationactivity
+submodule: UI
 author: Sebastiaan Mannem <sebas@mannem.nl>
 license: PostgreSQL License
 
@@ -22,8 +25,6 @@ FOR A PARTICULAR PURPOSE. THE SOFTWARE PROVIDED HEREUNDER IS ON AN "AS IS"
 BASIS, AND SEBASTIAAN MANNEM HAS NO OBLIGATIONS TO PROVIDE
 MAINTENANCE, SUPPORT, UPDATES, ENHANCEMENTS, OR MODIFICATIONS.
 """
-
-from __future__ import print_function
 
 import curses
 import time
@@ -55,11 +56,6 @@ PGTOP_FLAG_LAGB = 128
 PGTOP_FLAG_WALS = 256
 PGTOP_FLAG_NONE = None
 
-# Display query mode
-PGTOP_TRUNCATE = 1
-PGTOP_WRAP_NOINDENT = 2
-PGTOP_WRAP = 3
-
 # Maximum number of column
 PGTOP_MAX_NCOL = 14
 
@@ -67,70 +63,70 @@ PGTOP_COLS = {
     'lag': {
         'host': {
             'n':  1,
-            'name': 'HOST',
+            'title': 'HOST',
             'template_h': '%-25s ',
             'flag': PGTOP_FLAG_NONE,
             'mandatory': True
         },
         'role': {
             'n':  2,
-            'name': 'ROLE',
+            'title': 'ROLE',
             'template_h': '%-8s ',
             'flag': PGTOP_FLAG_ROLE,
             'mandatory': False
         },
         'upstream': {
             'n':  3,
-            'name': 'UPSTREAM',
+            'title': 'UPSTREAM',
             'template_h': '%-40s ',
             'flag': PGTOP_FLAG_UPSTREAM,
             'mandatory': False
         },
         'lsn': {
             'n':  4,
-            'name': 'LSN',
+            'title': 'LSN',
             'template_h': '%-13s ',
             'flag': PGTOP_FLAG_LSN,
             'mandatory': False
         },
         'recovery_conf': {
             'n':  5,
-            'name': 'REC_CONF',
+            'title': 'REC_CONF',
             'template_h': '%-10s ',
             'flag': PGTOP_FLAG_RECCONF,
             'mandatory': False
         },
         'standby_mode': {
             'n':  6,
-            'name': 'STBY_MODE',
+            'title': 'STBY_MODE',
             'template_h': '%-10s ',
             'flag': PGTOP_FLAG_STBYMODE,
             'mandatory': False
         },
         'replication_slot': {
             'n':  7,
-            'name': 'SLOT',
+            'title': 'SLOT',
             'template_h': '%-10s ',
             'flag': PGTOP_FLAG_SLOT,
             'mandatory': False
         },
         'lag_sec': {
             'n':  8,
-            'name': 'LAG(s)',
+            'title': 'LAG(s)',
             'template_h': '%10s ',
             'flag': PGTOP_FLAG_LAGS,
             'mandatory': False
         },
         'lag_mb': {
             'n':  9,
-            'name': 'LAG(MB)',
+            'title': 'LAG(MB)',
             'template_h': '%10s ',
             'flag': PGTOP_FLAG_LAGB,
             'mandatory': False
         },
         'wal_sec': {
             'n':  10,
-            'name': 'WAL MB/s',
+            'title': 'WAL MB/s',
             'template_h': '%10s ',
             'flag': PGTOP_FLAG_WALS,
             'mandatory': False
@@ -142,9 +138,7 @@ SORT_KEYS = {'u': 'upstream', 's': 'slot', 'r': 'role', 'm': 'lag_sec', 'w': 'la
 
 
 def bytes2human(num):
-    """
-    Convert a size into a human readable format.
-    """
+    """Convert a size into a human readable format."""
     symbols = ('K', 'M', 'G', 'T', 'P', 'E', 'Z', 'Y')
     prefix = {}
     nume = ''
@@ -161,33 +155,21 @@ def bytes2human(num):
 
 
 class UI:
-    """
-    UI class
-    """
-    def __init__(self, version):
-        """
-        Constructor.
-        """
-        self.version = version
+    """UI class for handling all UI operations."""
+
+    def __init__(self):
+        """Constructor."""
         self.win = None
         self.sys_color = True
         self.lineno = 0
         self.lines = []
         self.line_colors = None
-        # Maximum number of columns
-        self.max_ncol = 13
-        # Default
-        self.verbose_mode = PGTOP_WRAP_NOINDENT
-        # Max IOPS
-        self.max_iops = 0
         # Sort
         self.sort = 'u'
         # Color
         self.color = True
         # Default mode : activites, waiting, blocking
         self.mode = 'lag'
-        # Does pg_activity is connected to a local PG server ?
-        self.is_local = True
         # Start line
         self.start_line = 5
         # Window's size
@@ -197,66 +179,27 @@ class UI:
         self.uibuffer = None
         # Refresh time
         self.refresh_time = 2
-        # Maximum DATABASE columns header length
-        self.max_db_length = 16
-        # Array containing pid of processes to yank
-        self.pid_yank = []
-        self.pid = []
         # Data collector
         self.data = None
         # Maximum number of column
         self.max_ncol = PGTOP_MAX_NCOL
-        # Default filesystem blocksize
-        self.fs_blocksize = 4096
         # Init curses
         # self.__init_curses()
 
-    def set_is_local(self, is_local):
-        """
-        Set self.is_local
-        """
-        self.is_local = is_local
-
-    def get_is_local(self,):
-        """
-        Get self.is_local
-        """
-        return self.is_local
-
     def get_mode(self,):
-        """
-        Get self.mode
-        """
+        """Get self.mode."""
         return self.mode
 
     def set_start_line(self, start_line):
-        """
-        Set self.start_line
-        """
+        """Set self.start_line."""
         self.start_line = start_line
 
     def set_buffer(self, uibuffer):
-        """
-        Set self.uibuffer
-        """
+        """Set self.uibuffer."""
         self.uibuffer = uibuffer
 
-    def set_blocksize(self, blocksize):
-        """
-        Set blocksize
-        """
-        if not isinstance(blocksize, int):
-            raise Exception('Unvalid blocksize value.')
-        if blocksize != 0 and not (blocksize & (blocksize - 1)) == 0:
-            raise Exception('Unvalid blocksize value.')
-        if not blocksize > 0:
-            raise Exception('Unvalid blocksize value.')
-        self.fs_blocksize = int(blocksize)
-
     def init_curses(self,):
-        """
-        Initialize curses environment and colors.
-        """
+        """Initialize curses environment and colors."""
         self.__init_curses()
         # Columns colors definition
         self.line_colors = {
@@ -328,9 +271,7 @@ class UI:
         }
 
     def __init_curses(self,):
-        """
-        Initialize curses environment.
-        """
+        """Initialize curses environment."""
         curses.setupterm()
         self.win = curses.initscr()
         self.win.keypad(1)
@@ -351,7 +292,9 @@ class UI:
 
     def __get_color(self, color):
         """
-        Wrapper around curses.color_pair()
+        Get the collor info of a specific collor.
+
+        This is merely a wrapper around curses.color_pair().
         """
         if self.sys_color:
             return curses.color_pair(color)
@@ -359,8 +302,10 @@ class UI:
 
     def at_exit_curses(self,):
         """
-        Called at exit time.
-        Rollback to default values.
+        Cleanup at exit of curses.
+
+        This is called at exit time.
+        This method will rollback to default values.
         """
         try:
             self.win.keypad(0)
@@ -381,7 +326,9 @@ class UI:
 
     def signal_handler(self, signal, frame):
         """
-        Function called on a process kill.
+        Process a received signal.
+
+        This function is called on a process kill.
         """
         self.at_exit_curses()
         print("FATAL: Killed with signal %s ." % (str(signal),))
@@ -389,9 +336,7 @@ class UI:
         sys.exit(1)
 
     def set_nocolor(self,):
-        """
-        Replace colors by white.
-        """
+        """Replace colors by white."""
         if not self.sys_color:
             return
         self.color = False
@@ -407,9 +352,7 @@ class UI:
         curses.init_pair(C_GRAY, curses.COLOR_WHITE, -1)
 
     def set_color(self,):
-        """
-        Set colors.
-        """
+        """Set colors."""
         if not self.sys_color:
             return
         self.color = True
@@ -425,16 +368,11 @@ class UI:
         curses.init_pair(C_GRAY, 0, -1)
 
     def check_window_size(self,):
-        """
-        Update window's size
-        """
+        """Update window's size."""
         (self.maxy, self.maxx) = self.win.getmaxyx()
-        return
 
     def __get_pause_msg(self,):
-        """
-        Returns PAUSE message, depending of the line size
-        """
+        """Return PAUSE message, depending of the line size."""
         msg = "PAUSE"
         line = ""
         line += " " * (int(self.maxx/2) - len(msg))
@@ -443,9 +381,7 @@ class UI:
         return line
 
     def __pause(self,):
-        """
-        PAUSE mode
-        """
+        """Pause the UI refresh."""
         self.__print_string(
             self.start_line,
             0,
@@ -466,16 +402,7 @@ class UI:
             if k == curses.KEY_RESIZE:
                 if self.uibuffer is not None and 'procs' in self.uibuffer:
                     self.check_window_size()
-                    self.refresh_window(
-                        self.uibuffer['procs'],
-                        self.uibuffer['conn_string'],
-                        self.uibuffer['flag'],
-                        self.uibuffer['indent'],
-                        self.uibuffer['io'],
-                        self.uibuffer['tps'],
-                        self.uibuffer['active_connections'],
-                        self.uibuffer['size_ev'],
-                        self.uibuffer['total_size'])
+                    self.refresh_window()
                     self.__print_string(self.start_line, 0,
                                         self.__get_pause_msg(),
                                         self.__get_color(C_RED_BLACK) |
@@ -483,9 +410,7 @@ class UI:
             curses.flushinp()
 
     def __current_position(self,):
-        """
-        Display current mode
-        """
+        """Display current mode."""
         if self.mode == 'lag':
             msg = "REPLICATION LAG"
         color = self.__get_color(C_GREEN)
@@ -495,10 +420,8 @@ class UI:
         line += " " * (self.maxx - len(line) - 0)
         self.__print_string(self.start_line, 0, line, color | curses.A_BOLD)
 
-    def __help_key_interactive(self,):
-        """
-        Display interactive mode menu bar
-        """
+    def __help_key_interactive(self):
+        """Display interactive mode menu bar."""
         colno = self.__print_string(
             (self.maxy - 1),
             0,
@@ -555,10 +478,8 @@ class UI:
             self.__add_blank(" "),
             self.__get_color(C_CYAN) | curses.A_REVERSE)
 
-    def __change_mode_interactive(self,):
-        """
-        Display change mode menu bar
-        """
+    def __change_mode_interactive(self):
+        """Display change mode menu bar."""
         colno = self.__print_string(
             (self.maxy - 1),
             0,
@@ -625,23 +546,21 @@ class UI:
             self.__add_blank(" "),
             self.__get_color(C_CYAN) | curses.A_REVERSE)
 
-    def __interactive(self, process, flag, indent,):
+    def __interactive(self, process, flag):
         """
-        Interactive mode trigged on KEY_UP or KEY_DOWN key press
+        Switch o interactive mode.
+
+        Interactive mode is trigged on KEY_UP or KEY_DOWN key press
         If no key hit during 3 seconds, exit this mode
         """
-        # Force truncated display
-        old_verbose_mode = self.verbose_mode
-        self.verbose_mode = PGTOP_TRUNCATE
-
         # Refresh lines with this verbose mode
-        self.__scroll_window(process, flag, indent, 0)
+        self.__scroll_window(process, flag, 0)
 
         self.__help_key_interactive()
 
         current_pos = 0
         offset = 0
-        self.__refresh_line(process[current_pos], flag, indent, 'cursor',
+        self.__refresh_line(process[current_pos], flag, 'cursor',
                             self.lines[current_pos] - offset)
         self.win.timeout(int(1000))
         nb_nk = 0
@@ -659,42 +578,39 @@ class UI:
                 curses.endwin()
                 exit()
             # Move cursor
-            if k == curses.KEY_DOWN or k == curses.KEY_UP:
+            if k in (curses.KEY_DOWN, curses.KEY_UP):
                 nb_nk = 0
                 known = True
                 if k == curses.KEY_UP and current_pos > 0:
                     if (self.lines[current_pos] - offset) < \
                       (self.start_line + 3):
                         offset -= 1
-                        self.__scroll_window(process, flag, indent, offset)
+                        self.__scroll_window(process, flag, offset)
                         self.__help_key_interactive()
 
                     if current_pos < len(process):
                         self.__refresh_line(
                             process[current_pos],
                             flag,
-                            indent,
                             'default',
                             self.lines[current_pos] - offset)
                     current_pos -= 1
                 if k == curses.KEY_DOWN and current_pos < (len(process) - 1):
                     if (self.lines[current_pos] - offset) >= (self.maxy - 2):
                         offset += 1
-                        self.__scroll_window(process, flag, indent, offset)
+                        self.__scroll_window(process, flag, offset)
                         self.__help_key_interactive()
 
                     if current_pos >= 0:
                         self.__refresh_line(
                             process[current_pos],
                             flag,
-                            indent,
                             'default',
                             self.lines[current_pos] - offset)
                     current_pos += 1
                 self.__refresh_line(
                     process[current_pos],
                     flag,
-                    indent,
                     'cursor',
                     self.lines[current_pos] - offset)
                 curses.flushinp()
@@ -705,7 +621,6 @@ class UI:
                 self.__refresh_line(
                     process[current_pos],
                     flag,
-                    indent,
                     'default',
                     self.lines[current_pos] - offset)
 
@@ -713,28 +628,23 @@ class UI:
                     current_pos += 1
                     if (self.lines[current_pos] - offset) >= (self.maxy - 1):
                         offset += 1
-                        self.__scroll_window(process, flag, indent, offset)
+                        self.__scroll_window(process, flag, offset)
                         self.__help_key_interactive()
                 self.__refresh_line(
                     process[current_pos],
                     flag,
-                    indent,
                     'cursor',
                     self.lines[current_pos] - offset)
             # Quit interactive mode
             if (k != -1 and not known) or k == curses.KEY_RESIZE:
-                self.verbose_mode = old_verbose_mode
                 curses.flushinp()
                 return 0
             curses.flushinp()
             if nb_nk > 3:
-                self.verbose_mode = old_verbose_mode
                 return 0
 
     def poll(self, interval, flag, indent, process=None, disp_proc=None):
-        """
-        Poll activities.
-        """
+        """Poll activities."""
         # Keyboard interactions
         self.win.timeout(int(1000 * self.refresh_time * interval))
         t_start = time.time()
@@ -752,15 +662,9 @@ class UI:
             self.__pause()
             do_refresh = True
         # interactive mode
-        if (key == curses.KEY_DOWN or key == curses.KEY_UP) and disp_proc:
-            self.__interactive(disp_proc, flag, indent)
+        if key in (curses.KEY_DOWN, curses.KEY_UP) and disp_proc:
+            self.__interactive(disp_proc, flag)
             known = False
-            do_refresh = True
-        # change verbosity
-        if key == ord('v'):
-            self.verbose_mode += 1
-            if self.verbose_mode > 3:
-                self.verbose_mode = 1
             do_refresh = True
         # turn off/on colors
         if key == ord('C'):
@@ -797,17 +701,7 @@ class UI:
         if do_refresh is True and self.uibuffer is not None and \
            isinstance(self.uibuffer, dict) and 'procs' in self.uibuffer:
             self.check_window_size()
-            self.refresh_window(
-                self.uibuffer['procs'],
-                self.uibuffer['pg_version'],
-                self.uibuffer['conn_string'],
-                self.uibuffer['flag'],
-                self.uibuffer['indent'],
-                self.uibuffer['io'],
-                self.uibuffer['tps'],
-                self.uibuffer['active_connections'],
-                self.uibuffer['size_ev'],
-                self.uibuffer['total_size'])
+            self.refresh_window()
 
         curses.flushinp()
         t_end = time.time()
@@ -835,9 +729,7 @@ class UI:
         return (lag_info, None)
 
     def __print_string(self, lineno, colno, word, color=0):
-        """
-        Print a string at position (lineno, colno) and returns its length.
-        """
+        """Print a string at position (lineno, colno) and returns its length."""
         try:
             self.win.addstr(lineno, colno, word, color)
         except curses.error:
@@ -845,16 +737,12 @@ class UI:
         return len(word)
 
     def __add_blank(self, line, offset=0):
-        """
-        Complete string with white spaces from end of string to end of line.
-        """
+        """Complete string with white spaces from end of string to end of line."""
         line += " " * (self.maxx - (len(line) + offset))
         return line
 
     def get_indent(self, flag):
-        """
-        Returns identation for Query column.
-        """
+        """Return identation for Query column."""
         indent = ''
         cols = [{}] * self.max_ncol
         for _, mode in PGTOP_COLS[self.mode].items():
@@ -862,16 +750,13 @@ class UI:
                 cols[int(mode['n'])] = mode
         for col in cols:
             try:
-                if col['name'] != 'Query':
-                    indent += col['template_h'] % ' '
+                indent += col['template_h'] % ' '
             except KeyError:
                 pass
         return indent
 
     def __print_cols_header(self, flag):
-        """
-        Print columns headers
-        """
+        """Print columns headers."""
         line = ''
         disp = ''
         xpos = 0
@@ -881,15 +766,13 @@ class UI:
             if val['mandatory'] or (val['flag'] & flag):
                 res[int(val['n'])] = val
         for val in res:
-            if 'name' in val:
-                disp = val['template_h'] % val['name']
-                if self.sort == val['name'][0].lower() and val['name'] in \
+            if 'title' in val:
+                disp = val['template_h'] % val['title']
+                if self.sort == val['title'][0].lower() and val['title'] in \
                    ["CPU%", "MEM%", "READ/s", "WRITE/s", "TIME+"]:
                     color_highlight = self.__get_color(C_CYAN)
                 else:
                     color_highlight = color
-                if val['name'] == "Query":
-                    disp += " " * (self.maxx - (len(line) + len(disp)))
                 line += disp
                 self.__print_string(
                     self.lineno,
@@ -899,14 +782,14 @@ class UI:
                 xpos += len(disp)
         self.lineno += 1
 
-    def __print_header(self, pg_version, conn_string, ios, tps, active_connections, size_ev, total_size):
-        """
-        Print window header
-        """
+    def __print_header(self, pg_version, conn_string, tps,
+                       active_connections, size_ev, total_size):
+        """Print window header."""
         self.lineno = 0
         colno = 0
         line = "%s - '%s' - Ref.: %ss" % (pg_version, conn_string, self.refresh_time)
         colno = self.__print_string(self.lineno, colno, line)
+        return
         colno = 0
         self.lineno += 1
         colno += self.__print_string(self.lineno, colno, "  Size: ")
@@ -923,46 +806,13 @@ class UI:
                                      "%11s" % (active_connections,),
                                      self.__get_color(C_GREEN) | curses.A_BOLD)
 
-        # If not local connection, don't get and display system informations
-        if not self.is_local:
-            return
-
-        self.lineno += 1
-        line = "  Mem.: %6s0%% - %9s/%-8s" % \
-            (100, bytes2human(14), bytes2human(180))
-        colno_io = self.__print_string(self.lineno, 0, line)
-
-        if (int(ios['read_count'])+int(ios['write_count'])) > self.max_iops:
-            self.max_iops = (int(ios['read_count'])+int(ios['write_count']))
-
-        line_io = " | IO Max: %8s/s" % (self.max_iops,)
-        colno = self.__print_string(self.lineno, colno_io, line_io)
-
-        # swap usage
-        line = "  Swap: %6s0%% - %9s/%-8s" % \
-            (1000, bytes2human(100), bytes2human(2000))
-        self.lineno += 1
-        colno = self.__print_string(self.lineno, 0, line)
-        line_io = " | Read : %10s/s - %6s/s" % \
-            (bytes2human(ios['read_bytes']), int(ios['read_count']),)
-        colno = self.__print_string(self.lineno, colno_io, line_io)
-
-        # load average, uptime
-        line = "  Load:    %.2f %.2f %.2f" % (1, 2, 3)
-        self.lineno += 1
-        colno = self.__print_string(self.lineno, 0, line)
-        line_io = " | Write: %10s/s - %6s/s" % \
-            (bytes2human(ios['write_bytes']), int(ios['write_count']),)
-        colno = self.__print_string(self.lineno, colno_io, line_io)
-
-    def __help_window(self,):
-        """
-        Display help window
-        """
+    def __help_window(self):
+        """Display help window."""
         self.win.erase()
         self.lineno = 0
+        pgreplicationactivity = __import__('pgreplicationactivity')
         text = "pg_activity %s - (c) 2018 Sebastiaan Mannem" % \
-            (self.version)
+            (pgreplicationactivity.__version__)
         self.__print_string(self.lineno, 0, text,
                             self.__get_color(C_GREEN) | curses.A_BOLD)
         self.lineno += 1
@@ -1018,26 +868,28 @@ class UI:
             raise err
 
     def __display_help_key(self, lineno, colno, key, help_msg):
-        """
-        Display help key
-        """
+        """Display help key."""
         pos1 = self.__print_string(lineno, colno, key,
                                    self.__get_color(C_CYAN) | curses.A_BOLD)
         pos2 = self.__print_string(lineno, colno + pos1, ": %s" % (help_msg,))
         return colno + pos1 + pos2
 
-    def refresh_window(self, procs, pg_version, conn_string, flag, indent, ios, tps,
-                       active_connections, size_ev, total_size):
-        """
-        Refresh the window
-        """
+    def refresh_window(self):
+        """Refresh the window."""
+        procs = self.uibuffer['procs']
+        pg_version = self.uibuffer['pg_version']
+        conn_string = self.uibuffer['conn_string']
+        flag = self.uibuffer['flag']
+        tps = self.uibuffer['tps']
+        active_connections = self.uibuffer['active_connections']
+        size_ev = self.uibuffer['size_ev']
+        total_size = self.uibuffer['total_size']
 
         self.lines = []
         self.win.erase()
         self.__print_header(
             pg_version,
             conn_string,
-            ios,
             tps,
             active_connections,
             size_ev,
@@ -1048,7 +900,7 @@ class UI:
         self.__print_cols_header(flag)
         for proc in procs:
             try:
-                self.__refresh_line(proc, flag, indent, 'default')
+                self.__refresh_line(proc, flag, 'default')
                 line_trunc += 1
                 self.lines.append(line_trunc)
             except curses.error:
@@ -1057,24 +909,20 @@ class UI:
             self.__print_string(line, 0, self.__add_blank(" "))
         self.__change_mode_interactive()
 
-    def __scroll_window(self, procs, flag, indent, offset=0):
-        """
-        Scroll the window
-        """
+    def __scroll_window(self, procs, flag, offset=0):
+        """Scroll the window."""
         self.lineno = (self.start_line + 2)
         pos = 0
         for proc in procs:
             if pos >= offset and self.lineno < (self.maxy - 1):
-                self.__refresh_line(proc, flag, indent, 'default')
+                self.__refresh_line(proc, flag, 'default')
             pos += 1
         for line in range(self.lineno, (self.maxy-1)):
             self.__print_string(line, 0, self.__add_blank(" "))
 
-    def __refresh_line(self, process, flag, indent, typecolor='default',
+    def __refresh_line(self, process, flag, typecolor='default',
                        line=None):
-        """
-        Refresh a line for activities mode
-        """
+        """Refresh a line for activities mode."""
         if line is not None:
             l_lineno = line
         else:
@@ -1121,17 +969,13 @@ class UI:
 
 
 def ask_password():
-    """
-    Ask for PostgreSQL user password
-    """
+    """Ask for PostgreSQL user password."""
     password = getpass()
     return password
 
 
 def clean_str(string):
-    """
-    Strip and replace some special characters.
-    """
+    """Strip and replace some special characters."""
     msg = str(string)
     msg = msg.replace("\n", " ")
     msg = re.sub(r"\s+", r" ", msg)
@@ -1141,9 +985,9 @@ def clean_str(string):
     return msg
 
 
-def get_flag_from_options(options):
-    """
-    Returns the flag depending on the options.
-    """
-    flag = PGTOP_FLAG_UPSTREAM | PGTOP_FLAG_LSN | PGTOP_FLAG_RECCONF | PGTOP_FLAG_STBYMODE | PGTOP_FLAG_SLOT |  PGTOP_FLAG_ROLE | PGTOP_FLAG_LAGS | PGTOP_FLAG_LAGB | PGTOP_FLAG_WALS
+def get_flag_from_options():
+    """Return the flag depending on the options."""
+    flag = PGTOP_FLAG_UPSTREAM | PGTOP_FLAG_LSN | PGTOP_FLAG_RECCONF | \
+        PGTOP_FLAG_STBYMODE | PGTOP_FLAG_SLOT | PGTOP_FLAG_ROLE | \
+        PGTOP_FLAG_LAGS | PGTOP_FLAG_LAGB | PGTOP_FLAG_WALS
     return flag
