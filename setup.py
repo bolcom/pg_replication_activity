@@ -1,3 +1,6 @@
+"""
+This module installs pg_replication_activity as a binary.
+
 # Copyright (C) 2018 Sebastiaan Mannem
 #
 # This file is part of pg_replication_activity.
@@ -14,10 +17,7 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with pg_replication_activity.  If not, see <http://www.gnu.org/licenses/>.
-
-'''
-This module installs pg_replication_activity as a binary.
-'''
+"""
 
 import codecs
 import os
@@ -30,9 +30,7 @@ INSTALL_REQUIREMENTS = [
 
 
 def find_version():
-    '''
-    This function reads the pg_replication_activity version from pg_replication_activity/__init__.py
-    '''
+    """Read the version from pg_replication_activity/__init__.py ."""
     here = os.path.abspath(os.path.dirname(__file__))
     init_path = os.path.join(here, 'pgreplicationactivity', '__init__.py')
     with codecs.open(init_path, 'r') as file_pointer:

@@ -1,8 +1,8 @@
 """
-This module handles all UI functionality.
+This module handles all ui functionality.
 
 module: pgreplicationactivity
-submodule: UI
+submodule: ui
 author: Sebastiaan Mannem <sebas@mannem.nl>
 license: PostgreSQL License
 

@@ -35,13 +35,13 @@ import logging
 import psycopg2
 from psycopg2 import errorcodes
 
-from pgreplicationactivity import UI, pgconnection
+from pgreplicationactivity import ui, pgconnection
 
 if os.name != 'posix':
     sys.exit("FATAL: Platform not supported.")
 
 # Create the UI
-PGAUI = UI.UI()
+PGAUI = ui.UI()
 
 
 def get_arguments():
@@ -106,7 +106,7 @@ def main():
         if PGAUI.get_mode() == 'lag':
             lag_info = PGAUI.data.get_standby_info()
         # draw the flag
-        flag = UI.get_flag_from_options()
+        flag = ui.get_flag_from_options()
         # main loop
         disp_procs = None
         # indentation
@@ -183,11 +183,11 @@ def try_connecting(args):
             is_password_error = check_for_password_error(err)
             if is_password_error and nb_try < 1:
                 nb_try += 1
-                password = UI.ask_password()
+                password = ui.ask_password()
             else:
                 if args.debug:
                     logging.exception(str(err).strip())
                 sys.exit("pg_activity: FATAL: %s" %
-                         (UI.clean_str(str(err),)))
+                         (ui.clean_str(str(err),)))
 
     return pgconnection.dsn_to_connstr({k: v for k, v in dsn.items() if k != 'password'})

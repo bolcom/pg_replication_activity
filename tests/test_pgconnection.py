@@ -1,14 +1,8 @@
-#!/usr/bin/env python3
-'''
-This module holds all unit tests for the pgconnection module
-'''
-import os
-import tempfile
+"""This module holds all unit tests for the pgconnection module."""
+
 import logging
 import unittest
 import unittest.mock
-from unittest.mock import patch
-from psycopg2.sql import Composed, SQL, Identifier
 from pgreplicationactivity.pgconnection import PGConnection, PGConnectionException
 
 
@@ -16,13 +10,10 @@ logging.disable(logging.CRITICAL)
 
 
 class PGConnectionTest(unittest.TestCase):
-    """
-    Test the PGConnection Class.
-    """
+    """Test the PGConnection Class."""
+
     def test_mocked_pg_connection_init(self):
-        '''
-        Test PGConnection.init for normal functionality
-        '''
+        """Test PGConnection.init for normal functionality."""
         with unittest.mock.patch('psycopg2.connect') as mock_connect:
             mock_con = mock_connect.return_value
             mock_con.closed = False
@@ -39,9 +30,7 @@ class PGConnectionTest(unittest.TestCase):
             pgconn = PGConnection()
 
     def test_mocked_runsql(self):
-        '''
-        Test PGConnection.run_sql for normal functionality
-        '''
+        """Test PGConnection.run_sql for normal functionality."""
         test_qry = "select datname, datdba from pg_database where datname in " \
                    "('postgres', 'template0')"
         query_header = [("datname",), ("datdba",)]
@@ -71,9 +60,7 @@ class PGConnectionTest(unittest.TestCase):
                 result = PGConnection(dsn_params={'server': 'server1'}).run_sql(test_qry)
 
     def test_mocked_is_standby(self):
-        '''
-        Test PGConnection.is_standby for normal functionality
-        '''
+        """Test PGConnection.is_standby for normal functionality."""
         query_header = [("recovery",)]
         with unittest.mock.patch('psycopg2.connect') as mock_connect:
             mock_con = mock_connect.return_value
