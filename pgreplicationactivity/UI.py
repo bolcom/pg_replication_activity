@@ -31,6 +31,7 @@ import time
 import sys
 import re
 from getpass import getpass
+import yaml
 
 # Define some color pairs
 C_BLACK_GREEN = 1
@@ -44,97 +45,23 @@ C_BLACK_CYAN = 8
 C_RED_BLACK = 9
 C_GRAY = 10
 
-# Columns
-PGTOP_FLAG_UPSTREAM = 1
-PGTOP_FLAG_LSN = 2
-PGTOP_FLAG_RECCONF = 4
-PGTOP_FLAG_STBYMODE = 8
-PGTOP_FLAG_SLOT = 16
-PGTOP_FLAG_LAGS = 32
-PGTOP_FLAG_ROLE = 64
-PGTOP_FLAG_LAGB = 128
-PGTOP_FLAG_WALS = 256
-PGTOP_FLAG_NONE = None
-
 # Maximum number of column
 PGTOP_MAX_NCOL = 14
 
-PGTOP_COLS = {
-    'lag': {
-        'host': {
-            'n':  1,
-            'title': 'HOST',
-            'template_h': '%-25s ',
-            'flag': PGTOP_FLAG_NONE,
-            'mandatory': True
-        },
-        'role': {
-            'n':  2,
-            'title': 'ROLE',
-            'template_h': '%-8s ',
-            'flag': PGTOP_FLAG_ROLE,
-            'mandatory': False
-        },
-        'upstream': {
-            'n':  3,
-            'title': 'UPSTREAM',
-            'template_h': '%-40s ',
-            'flag': PGTOP_FLAG_UPSTREAM,
-            'mandatory': False
-        },
-        'lsn': {
-            'n':  4,
-            'title': 'LSN',
-            'template_h': '%-13s ',
-            'flag': PGTOP_FLAG_LSN,
-            'mandatory': False
-        },
-        'recovery_conf': {
-            'n':  5,
-            'title': 'REC_CONF',
-            'template_h': '%-10s ',
-            'flag': PGTOP_FLAG_RECCONF,
-            'mandatory': False
-        },
-        'standby_mode': {
-            'n':  6,
-            'title': 'STBY_MODE',
-            'template_h': '%-10s ',
-            'flag': PGTOP_FLAG_STBYMODE,
-            'mandatory': False
-        },
-        'replication_slot': {
-            'n':  7,
-            'title': 'SLOT',
-            'template_h': '%-10s ',
-            'flag': PGTOP_FLAG_SLOT,
-            'mandatory': False
-        },
-        'lag_sec': {
-            'n':  8,
-            'title': 'LAG(s)',
-            'template_h': '%10s ',
-            'flag': PGTOP_FLAG_LAGS,
-            'mandatory': False
-        },
-        'lag_mb': {
-            'n':  9,
-            'title': 'LAG(MB)',
-            'template_h': '%10s ',
-            'flag': PGTOP_FLAG_LAGB,
-            'mandatory': False
-        },
-        'wal_sec': {
-            'n':  10,
-            'title': 'WAL MB/s',
-            'template_h': '%10s ',
-            'flag': PGTOP_FLAG_WALS,
-            'mandatory': False
-        }
-    }
-}
+PGTOP_COLS = yaml.load(open('pgreplicationactivity/cols.yaml'))
+PGTOP_FLAGS = yaml.load(open('pgreplicationactivity/flags.yaml'))
 
-SORT_KEYS = {'u': 'upstream', 's': 'slot', 'r': 'role', 'm': 'lag_sec', 'w': 'lag_mb', 'l': 'lsn'}
+
+def get_coldef_by_name(chapter, name):
+    """Get the definition of a column by its name."""
+    for coldef in PGTOP_COLS[chapter]:
+        if coldef['name'] == name:
+            return coldef
+    return None
+
+
+SORT_KEYS = {'u': 'upstream', 's': 'slot', 'r': 'role', 'm': 'lag_sec',
+             'w': 'lag_mb', 'l': 'lsn'}
 
 
 def bytes2human(num):
@@ -674,7 +601,7 @@ class UI:
                 self.set_color()
             do_refresh = True
         # sorts
-        if key == ord('c') and (flag & PGTOP_FLAG_LAGB) and self.sort != 'c':
+        if key == ord('c') and (flag & PGTOP_FLAGS['LAGB']) and self.sort != 'c':
             self.sort = 'c'
             known = True
         if key == ord('u') and self.sort != 'u':
@@ -745,9 +672,10 @@ class UI:
         """Return identation for Query column."""
         indent = ''
         cols = [{}] * self.max_ncol
-        for _, mode in PGTOP_COLS[self.mode].items():
-            if mode['mandatory'] or (mode['flag'] & flag):
-                cols[int(mode['n'])] = mode
+        for num in range(len(PGTOP_COLS[self.mode])):
+            mode = PGTOP_COLS[self.mode][num]
+            if mode['mandatory'] or (PGTOP_FLAGS[mode['flag']] & flag):
+                cols[num] = mode
         for col in cols:
             try:
                 indent += col['template_h'] % ' '
@@ -760,12 +688,13 @@ class UI:
         line = ''
         disp = ''
         xpos = 0
-        res = [{}] * self.max_ncol
+        cols = [{}] * self.max_ncol
         color = self.__get_color(C_GREEN)
-        for _, val in PGTOP_COLS[self.mode].items():
-            if val['mandatory'] or (val['flag'] & flag):
-                res[int(val['n'])] = val
-        for val in res:
+        for num in range(len(PGTOP_COLS[self.mode])):
+            mode = PGTOP_COLS[self.mode][num]
+            if mode['mandatory'] or (PGTOP_FLAGS[mode['flag']] & flag):
+                cols[num] = mode
+        for val in cols:
             if 'title' in val:
                 disp = val['template_h'] % val['title']
                 if self.sort == val['title'][0].lower() and val['title'] in \
@@ -929,12 +858,13 @@ class UI:
             l_lineno = self.lineno
 
         colno = 0
-        word = PGTOP_COLS[self.mode]['host']['template_h'] % (process['host'],)
+        coldef = get_coldef_by_name(self.mode, 'host')
+        word = coldef['template_h'] % (process['host'],)
         colno += self.__print_string(l_lineno, colno, word,
                                      self.line_colors['host'][typecolor])
         cols = []
         if self.mode == 'lag':
-            if flag & PGTOP_FLAG_ROLE:
+            if flag & PGTOP_FLAGS['ROLE']:
                 if process['role'] == 'master':
                     color_role = 'role_green'
                 elif process['role'] == 'standby':
@@ -942,27 +872,27 @@ class UI:
                 else:
                     color_role = 'role_default'
 
-                word = PGTOP_COLS[self.mode]['role']['template_h'] % \
-                    process['role']
+                coldef = get_coldef_by_name(self.mode, 'role')
+                word = coldef['template_h'] % process['role']
                 color = self.line_colors[color_role][typecolor]
                 colno += self.__print_string(l_lineno, colno, word, color)
-            if flag & PGTOP_FLAG_UPSTREAM:
+            if flag & PGTOP_FLAGS['UPSTREAM']:
                 cols.append('upstream')
-            if flag & PGTOP_FLAG_LSN:
+            if flag & PGTOP_FLAGS['LSN']:
                 cols.append('lsn')
-            if flag & PGTOP_FLAG_RECCONF:
+            if flag & PGTOP_FLAGS['RECCONF']:
                 cols.append('recovery_conf')
-            if flag & PGTOP_FLAG_STBYMODE:
+            if flag & PGTOP_FLAGS['STBYMODE']:
                 cols.append('standby_mode')
-            if flag & PGTOP_FLAG_LAGS:
+            if flag & PGTOP_FLAGS['LAGS']:
                 cols.append('lag_sec')
-            if flag & PGTOP_FLAG_LAGB:
+            if flag & PGTOP_FLAGS['LAGB']:
                 cols.append('lag_mb')
-            if flag & PGTOP_FLAG_WALS:
+            if flag & PGTOP_FLAGS['WALS']:
                 cols.append('wal_sec')
             for col in cols:
-                word = PGTOP_COLS[self.mode][col]['template_h'] % \
-                       (str(process[col[:35]]),)
+                coldef = get_coldef_by_name(self.mode, col)
+                word = coldef['template_h'] % (str(process[col[:35]]),)
                 color = self.line_colors[col][typecolor]
                 colno += self.__print_string(l_lineno, colno, word, color)
         self.lineno += 1
@@ -987,7 +917,7 @@ def clean_str(string):
 
 def get_flag_from_options():
     """Return the flag depending on the options."""
-    flag = PGTOP_FLAG_UPSTREAM | PGTOP_FLAG_LSN | PGTOP_FLAG_RECCONF | \
-        PGTOP_FLAG_STBYMODE | PGTOP_FLAG_SLOT | PGTOP_FLAG_ROLE | \
-        PGTOP_FLAG_LAGS | PGTOP_FLAG_LAGB | PGTOP_FLAG_WALS
+    flag = 0
+    for _, val in PGTOP_FLAGS.items():
+        flag = flag | val
     return flag
