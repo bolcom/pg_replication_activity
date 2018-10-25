@@ -159,7 +159,7 @@ class UI:
             # use colors
             curses.start_color()
             curses.use_default_colors()
-        except Exception:
+        except curses.error:
             # Terminal doesn't support curs_set() and colors
             self.sys_color = False
         curses.cbreak()
@@ -197,7 +197,7 @@ class UI:
         curses.echo()
         try:
             curses.curs_set(1)
-        except Exception:
+        except curses.error:
             pass
         curses.endwin()
 
@@ -669,6 +669,7 @@ class UI:
         line = "%s - '%s' - Ref.: %ss" % (pg_version, conn_string, self.refresh_time)
         colno = self.__print_string(self.lineno, colno, line)
         return
+        # pylint: disable=W0101
         colno = 0
         self.lineno += 1
         colno += self.__print_string(self.lineno, colno, "  Size: ")

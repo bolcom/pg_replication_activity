@@ -146,7 +146,7 @@ def main():
     except KeyboardInterrupt:
         PGAUI.at_exit_curses()
         sys.exit(1)
-    except Exception as err:
+    except Exception as err:  # pylint: disable=W0703
         PGAUI.at_exit_curses()
         # DEBUG
         if args.debug:
