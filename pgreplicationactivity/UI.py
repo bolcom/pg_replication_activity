@@ -129,73 +129,23 @@ class UI:
         """Initialize curses environment and colors."""
         self.__init_curses()
         # Columns colors definition
-        self.line_colors = {
-            'host': {
+
+        self.line_colors = {}
+        for coldef in PGTOP_COLS['lag']:
+            self.line_colors[coldef['name']] = {
                 'default': self.__get_color(C_CYAN),
                 'cursor':  self.__get_color(C_CYAN) | curses.A_REVERSE,
                 'yellow':  self.__get_color(C_YELLOW) | curses.A_BOLD
-            },
-            'upstream': {
-                'default': curses.A_BOLD | self.__get_color(C_GRAY),
+            }
+        for colname in ['yellow', 'green', 'red', 'default']:
+            self.line_colors['role_'+colname] = {
                 'cursor':  self.__get_color(C_CYAN) | curses.A_REVERSE,
                 'yellow':  self.__get_color(C_YELLOW) | curses.A_BOLD
-            },
-            'lsn': {
-                'default': curses.A_BOLD | self.__get_color(C_GRAY),
-                'cursor':  self.__get_color(C_CYAN) | curses.A_REVERSE,
-                'yellow':  self.__get_color(C_YELLOW) | curses.A_BOLD
-            },
-            'recovery_conf': {
-                'default': curses.A_BOLD | self.__get_color(C_GRAY),
-                'cursor':  self.__get_color(C_CYAN) | curses.A_REVERSE,
-                'yellow':  self.__get_color(C_YELLOW) | curses.A_BOLD
-            },
-            'standby_mode': {
-                'default': curses.A_BOLD | self.__get_color(C_GRAY),
-                'cursor':  self.__get_color(C_CYAN) | curses.A_REVERSE,
-                'yellow':  self.__get_color(C_YELLOW) | curses.A_BOLD
-            },
-            'role': {
-                'default': curses.A_BOLD | self.__get_color(C_GRAY),
-                'cursor':  self.__get_color(C_CYAN) | curses.A_REVERSE,
-                'yellow':  self.__get_color(C_YELLOW) | curses.A_BOLD
-            },
-            'lag_sec': {
-                'default': self.__get_color(C_CYAN),
-                'cursor':  self.__get_color(C_CYAN) | curses.A_REVERSE,
-                'yellow':  self.__get_color(C_YELLOW) | curses.A_BOLD
-            },
-            'lag_mb': {
-                'default': self.__get_color(0),
-                'cursor':  self.__get_color(C_CYAN) | curses.A_REVERSE,
-                'yellow':  self.__get_color(C_YELLOW) | curses.A_BOLD
-            },
-            'wal_sec': {
-                'default': self.__get_color(C_CYAN),
-                'cursor':  self.__get_color(C_CYAN) | curses.A_REVERSE,
-                'yellow':  self.__get_color(C_YELLOW) | curses.A_BOLD
-            },
-            'role_yellow': {
-                'default': self.__get_color(C_YELLOW),
-                'cursor':  self.__get_color(C_CYAN) | curses.A_REVERSE,
-                'yellow':  self.__get_color(C_YELLOW) | curses.A_BOLD
-            },
-            'role_green': {
-                'default': self.__get_color(C_GREEN),
-                'cursor':  self.__get_color(C_CYAN) | curses.A_REVERSE,
-                'yellow':  self.__get_color(C_YELLOW) | curses.A_BOLD
-            },
-            'role_red': {
-                'default': self.__get_color(C_RED),
-                'cursor':  self.__get_color(C_CYAN) | curses.A_REVERSE,
-                'yellow':  self.__get_color(C_YELLOW) | curses.A_BOLD
-            },
-            'role_default': {
-                'default': self.__get_color(0),
-                'cursor':  self.__get_color(C_CYAN) | curses.A_REVERSE,
-                'yellow':  self.__get_color(C_YELLOW) | curses.A_BOLD
-            },
-        }
+            }
+        self.line_colors['role_yellow']['default'] = self.__get_color(C_YELLOW)
+        self.line_colors['role_green']['default'] = self.__get_color(C_GREEN)
+        self.line_colors['role_red']['default'] = self.__get_color(C_RED)
+        self.line_colors['role_default']['default'] = self.__get_color(0)
 
     def __init_curses(self,):
         """Initialize curses environment."""

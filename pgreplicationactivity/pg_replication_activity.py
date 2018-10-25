@@ -143,7 +143,7 @@ def main():
             PGAUI.refresh_window()
             interval = 1
 
-    except KeyboardInterrupt as err:
+    except KeyboardInterrupt:
         PGAUI.at_exit_curses()
         sys.exit(1)
     except Exception as err:
