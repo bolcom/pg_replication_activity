@@ -31,37 +31,15 @@ import time
 import sys
 import re
 from getpass import getpass
-import yaml
-
-# Define some color pairs
-C_BLACK_GREEN = 1
-C_CYAN = 2
-C_RED = 3
-C_GREEN = 4
-C_YELLOW = 5
-C_MAGENTA = 6
-C_WHITE = 7
-C_BLACK_CYAN = 8
-C_RED_BLACK = 9
-C_GRAY = 10
-
-# Maximum number of column
-PGTOP_MAX_NCOL = 14
-
-PGTOP_COLS = yaml.load(open('pgreplicationactivity/cols.yaml'))
-PGTOP_FLAGS = yaml.load(open('pgreplicationactivity/flags.yaml'))
+from pgreplicationactivity import config
 
 
 def get_coldef_by_name(chapter, name):
     """Get the definition of a column by its name."""
-    for coldef in PGTOP_COLS[chapter]:
+    for coldef in config.COLS[chapter]:
         if coldef['name'] == name:
             return coldef
     return None
-
-
-SORT_KEYS = {'u': 'upstream', 's': 'slot', 'r': 'role', 'm': 'lag_sec',
-             'w': 'lag_mb', 'l': 'lsn'}
 
 
 def bytes2human(num):
@@ -109,7 +87,7 @@ class UI:
         # Data collector
         self.data = None
         # Maximum number of column
-        self.max_ncol = PGTOP_MAX_NCOL
+        self.max_ncol = config.MAX_NCOL
         # Init curses
         # self.__init_curses()
 
@@ -131,20 +109,20 @@ class UI:
         # Columns colors definition
 
         self.line_colors = {}
-        for coldef in PGTOP_COLS['lag']:
+        for coldef in config.COLS['lag']:
             self.line_colors[coldef['name']] = {
-                'default': self.__get_color(C_CYAN),
-                'cursor':  self.__get_color(C_CYAN) | curses.A_REVERSE,
-                'yellow':  self.__get_color(C_YELLOW) | curses.A_BOLD
+                'default': self.__get_color(config.C_CYAN),
+                'cursor':  self.__get_color(config.C_CYAN) | curses.A_REVERSE,
+                'yellow':  self.__get_color(config.C_YELLOW) | curses.A_BOLD
             }
         for colname in ['yellow', 'green', 'red', 'default']:
             self.line_colors['role_'+colname] = {
-                'cursor':  self.__get_color(C_CYAN) | curses.A_REVERSE,
-                'yellow':  self.__get_color(C_YELLOW) | curses.A_BOLD
+                'cursor':  self.__get_color(config.C_CYAN) | curses.A_REVERSE,
+                'yellow':  self.__get_color(config.C_YELLOW) | curses.A_BOLD
             }
-        self.line_colors['role_yellow']['default'] = self.__get_color(C_YELLOW)
-        self.line_colors['role_green']['default'] = self.__get_color(C_GREEN)
-        self.line_colors['role_red']['default'] = self.__get_color(C_RED)
+        self.line_colors['role_yellow']['default'] = self.__get_color(config.C_YELLOW)
+        self.line_colors['role_green']['default'] = self.__get_color(config.C_GREEN)
+        self.line_colors['role_red']['default'] = self.__get_color(config.C_RED)
         self.line_colors['role_default']['default'] = self.__get_color(0)
 
     def __init_curses(self,):
@@ -217,32 +195,32 @@ class UI:
         if not self.sys_color:
             return
         self.color = False
-        curses.init_pair(C_BLACK_GREEN, curses.COLOR_BLACK, curses.COLOR_WHITE)
-        curses.init_pair(C_CYAN, curses.COLOR_WHITE, -1)
-        curses.init_pair(C_RED, curses.COLOR_WHITE, -1)
-        curses.init_pair(C_RED_BLACK, curses.COLOR_WHITE, curses.COLOR_BLACK)
-        curses.init_pair(C_GREEN, curses.COLOR_WHITE, -1)
-        curses.init_pair(C_YELLOW, curses.COLOR_WHITE, -1)
-        curses.init_pair(C_MAGENTA, curses.COLOR_WHITE, -1)
-        curses.init_pair(C_WHITE, curses.COLOR_WHITE, -1)
-        curses.init_pair(C_BLACK_CYAN, curses.COLOR_WHITE, -1)
-        curses.init_pair(C_GRAY, curses.COLOR_WHITE, -1)
+        curses.init_pair(config.C_BLACK_GREEN, curses.COLOR_BLACK, curses.COLOR_WHITE)
+        curses.init_pair(config.C_CYAN, curses.COLOR_WHITE, -1)
+        curses.init_pair(config.C_RED, curses.COLOR_WHITE, -1)
+        curses.init_pair(config.C_RED_BLACK, curses.COLOR_WHITE, curses.COLOR_BLACK)
+        curses.init_pair(config.C_GREEN, curses.COLOR_WHITE, -1)
+        curses.init_pair(config.C_YELLOW, curses.COLOR_WHITE, -1)
+        curses.init_pair(config.C_MAGENTA, curses.COLOR_WHITE, -1)
+        curses.init_pair(config.C_WHITE, curses.COLOR_WHITE, -1)
+        curses.init_pair(config.C_BLACK_CYAN, curses.COLOR_WHITE, -1)
+        curses.init_pair(config.C_GRAY, curses.COLOR_WHITE, -1)
 
     def set_color(self,):
         """Set colors."""
         if not self.sys_color:
             return
         self.color = True
-        curses.init_pair(C_BLACK_GREEN, curses.COLOR_BLACK, curses.COLOR_GREEN)
-        curses.init_pair(C_CYAN, curses.COLOR_CYAN, -1)
-        curses.init_pair(C_RED, curses.COLOR_RED, -1)
-        curses.init_pair(C_RED_BLACK, curses.COLOR_RED, curses.COLOR_BLACK)
-        curses.init_pair(C_GREEN, curses.COLOR_GREEN, -1)
-        curses.init_pair(C_YELLOW, curses.COLOR_YELLOW, -1)
-        curses.init_pair(C_MAGENTA, curses.COLOR_MAGENTA, -1)
-        curses.init_pair(C_WHITE, curses.COLOR_WHITE, -1)
-        curses.init_pair(C_BLACK_CYAN, curses.COLOR_BLACK, curses.COLOR_CYAN)
-        curses.init_pair(C_GRAY, 0, -1)
+        curses.init_pair(config.C_BLACK_GREEN, curses.COLOR_BLACK, curses.COLOR_GREEN)
+        curses.init_pair(config.C_CYAN, curses.COLOR_CYAN, -1)
+        curses.init_pair(config.C_RED, curses.COLOR_RED, -1)
+        curses.init_pair(config.C_RED_BLACK, curses.COLOR_RED, curses.COLOR_BLACK)
+        curses.init_pair(config.C_GREEN, curses.COLOR_GREEN, -1)
+        curses.init_pair(config.C_YELLOW, curses.COLOR_YELLOW, -1)
+        curses.init_pair(config.C_MAGENTA, curses.COLOR_MAGENTA, -1)
+        curses.init_pair(config.C_WHITE, curses.COLOR_WHITE, -1)
+        curses.init_pair(config.C_BLACK_CYAN, curses.COLOR_BLACK, curses.COLOR_CYAN)
+        curses.init_pair(config.C_GRAY, 0, -1)
 
     def check_window_size(self,):
         """Update window's size."""
@@ -263,7 +241,7 @@ class UI:
             self.start_line,
             0,
             self.__get_pause_msg(),
-            self.__get_color(C_RED_BLACK) | curses.A_REVERSE | curses.A_BOLD)
+            self.__get_color(config.C_RED_BLACK) | curses.A_REVERSE | curses.A_BOLD)
         while 1:
             try:
                 k = self.win.getch()
@@ -282,7 +260,7 @@ class UI:
                     self.refresh_window()
                     self.__print_string(self.start_line, 0,
                                         self.__get_pause_msg(),
-                                        self.__get_color(C_RED_BLACK) |
+                                        self.__get_color(config.C_RED_BLACK) |
                                         curses.A_REVERSE | curses.A_BOLD)
             curses.flushinp()
 
@@ -290,7 +268,7 @@ class UI:
         """Display current mode."""
         if self.mode == 'lag':
             msg = "REPLICATION LAG"
-        color = self.__get_color(C_GREEN)
+        color = self.__get_color(config.C_GREEN)
         line = ""
         line += " " * (int(self.maxx/2) - len(msg))
         line += msg
@@ -308,7 +286,7 @@ class UI:
             (self.maxy - 1),
             colno,
             "Cancel current query     ",
-            self.__get_color(C_CYAN) | curses.A_REVERSE)
+            self.__get_color(config.C_CYAN) | curses.A_REVERSE)
         colno += self.__print_string(
             (self.maxy - 1),
             colno,
@@ -318,7 +296,7 @@ class UI:
             (self.maxy - 1),
             colno,
             "Terminate the backend    ",
-            self.__get_color(C_CYAN) | curses.A_REVERSE)
+            self.__get_color(config.C_CYAN) | curses.A_REVERSE)
         colno += self.__print_string(
             (self.maxy - 1),
             colno,
@@ -328,7 +306,7 @@ class UI:
             (self.maxy - 1),
             colno,
             "Tag/untag the process    ",
-            self.__get_color(C_CYAN) | curses.A_REVERSE)
+            self.__get_color(config.C_CYAN) | curses.A_REVERSE)
         colno += self.__print_string(
             (self.maxy - 1),
             colno,
@@ -338,7 +316,7 @@ class UI:
             (self.maxy - 1),
             colno,
             "Back to activity    ",
-            self.__get_color(C_CYAN) | curses.A_REVERSE)
+            self.__get_color(config.C_CYAN) | curses.A_REVERSE)
         colno += self.__print_string(
             (self.maxy - 1),
             colno,
@@ -348,12 +326,12 @@ class UI:
             (self.maxy - 1),
             colno,
             "Quit    ",
-            self.__get_color(C_CYAN) | curses.A_REVERSE)
+            self.__get_color(config.C_CYAN) | curses.A_REVERSE)
         colno += self.__print_string(
             (self.maxy - 1),
             colno,
             self.__add_blank(" "),
-            self.__get_color(C_CYAN) | curses.A_REVERSE)
+            self.__get_color(config.C_CYAN) | curses.A_REVERSE)
 
     def __change_mode_interactive(self):
         """Display change mode menu bar."""
@@ -366,7 +344,7 @@ class UI:
             (self.maxy - 1),
             colno,
             "Running queries    ",
-            self.__get_color(C_CYAN) | curses.A_REVERSE)
+            self.__get_color(config.C_CYAN) | curses.A_REVERSE)
         colno += self.__print_string(
             (self.maxy - 1),
             colno,
@@ -376,7 +354,7 @@ class UI:
             (self.maxy - 1),
             colno,
             "Waiting queries    ",
-            self.__get_color(C_CYAN) | curses.A_REVERSE)
+            self.__get_color(config.C_CYAN) | curses.A_REVERSE)
         colno += self.__print_string(
             (self.maxy - 1),
             colno,
@@ -386,7 +364,7 @@ class UI:
             (self.maxy - 1),
             colno,
             "Blocking queries ",
-            self.__get_color(C_CYAN) | curses.A_REVERSE)
+            self.__get_color(config.C_CYAN) | curses.A_REVERSE)
         colno += self.__print_string(
             (self.maxy - 1),
             colno,
@@ -396,7 +374,7 @@ class UI:
             (self.maxy - 1),
             colno,
             "Pause    ",
-            self.__get_color(C_CYAN) | curses.A_REVERSE)
+            self.__get_color(config.C_CYAN) | curses.A_REVERSE)
         colno += self.__print_string(
             (self.maxy - 1),
             colno,
@@ -406,7 +384,7 @@ class UI:
             (self.maxy - 1),
             colno,
             "Quit    ",
-            self.__get_color(C_CYAN) | curses.A_REVERSE)
+            self.__get_color(config.C_CYAN) | curses.A_REVERSE)
         colno += self.__print_string(
             (self.maxy - 1),
             colno,
@@ -416,12 +394,12 @@ class UI:
             (self.maxy - 1),
             colno,
             "Help    ",
-            self.__get_color(C_CYAN) | curses.A_REVERSE)
+            self.__get_color(config.C_CYAN) | curses.A_REVERSE)
         colno += self.__print_string(
             (self.maxy - 1),
             colno,
             self.__add_blank(" "),
-            self.__get_color(C_CYAN) | curses.A_REVERSE)
+            self.__get_color(config.C_CYAN) | curses.A_REVERSE)
 
     def __interactive(self, process, flag):
         """
@@ -551,7 +529,7 @@ class UI:
                 self.set_color()
             do_refresh = True
         # sorts
-        if key == ord('c') and (flag & PGTOP_FLAGS['LAGB']) and self.sort != 'c':
+        if key == ord('c') and (flag & config.FLAGS['LAGB']) and self.sort != 'c':
             self.sort = 'c'
             known = True
         if key == ord('u') and self.sort != 'u':
@@ -597,7 +575,7 @@ class UI:
 
         # return processes sorted by query duration
         try:
-            sort_key = SORT_KEYS[self.sort]
+            sort_key = config.SORT_KEYS[self.sort]
         except KeyError:
             sort_key = 'host'
 
@@ -622,9 +600,9 @@ class UI:
         """Return identation for Query column."""
         indent = ''
         cols = [{}] * self.max_ncol
-        for num in range(len(PGTOP_COLS[self.mode])):
-            mode = PGTOP_COLS[self.mode][num]
-            if mode['mandatory'] or (PGTOP_FLAGS[mode['flag']] & flag):
+        for num in range(len(config.COLS[self.mode])):
+            mode = config.COLS[self.mode][num]
+            if mode['mandatory'] or (config.FLAGS[mode['flag']] & flag):
                 cols[num] = mode
         for col in cols:
             try:
@@ -639,17 +617,17 @@ class UI:
         disp = ''
         xpos = 0
         cols = [{}] * self.max_ncol
-        color = self.__get_color(C_GREEN)
-        for num in range(len(PGTOP_COLS[self.mode])):
-            mode = PGTOP_COLS[self.mode][num]
-            if mode['mandatory'] or (PGTOP_FLAGS[mode['flag']] & flag):
+        color = self.__get_color(config.C_GREEN)
+        for num in range(len(config.COLS[self.mode])):
+            mode = config.COLS[self.mode][num]
+            if mode['mandatory'] or (config.FLAGS[mode['flag']] & flag):
                 cols[num] = mode
         for val in cols:
             if 'title' in val:
                 disp = val['template_h'] % val['title']
                 if self.sort == val['title'][0].lower() and val['title'] in \
                    ["CPU%", "MEM%", "READ/s", "WRITE/s", "TIME+"]:
-                    color_highlight = self.__get_color(C_CYAN)
+                    color_highlight = self.__get_color(config.C_CYAN)
                 else:
                     color_highlight = color
                 line += disp
@@ -679,12 +657,12 @@ class UI:
                                      " - %9s/s" % (bytes2human(size_ev),),)
         colno += self.__print_string(self.lineno, colno, "        | TPS: ")
         colno += self.__print_string(self.lineno, colno, "%11s" % (tps,),
-                                     self.__get_color(C_GREEN) | curses.A_BOLD)
+                                     self.__get_color(config.C_GREEN) | curses.A_BOLD)
         colno += self.__print_string(self.lineno, colno,
                                      "        | Active Connections: ")
         colno += self.__print_string(self.lineno, colno,
                                      "%11s" % (active_connections,),
-                                     self.__get_color(C_GREEN) | curses.A_BOLD)
+                                     self.__get_color(config.C_GREEN) | curses.A_BOLD)
 
     def __help_window(self):
         """Display help window."""
@@ -694,7 +672,7 @@ class UI:
         text = "pg_activity %s - (c) 2018 Sebastiaan Mannem" % \
             (pgreplicationactivity.__version__)
         self.__print_string(self.lineno, 0, text,
-                            self.__get_color(C_GREEN) | curses.A_BOLD)
+                            self.__get_color(config.C_GREEN) | curses.A_BOLD)
         self.lineno += 1
         text = "Released under PostgreSQL License."
         self.__print_string(self.lineno, 0, text)
@@ -750,7 +728,7 @@ class UI:
     def __display_help_key(self, lineno, colno, key, help_msg):
         """Display help key."""
         pos1 = self.__print_string(lineno, colno, key,
-                                   self.__get_color(C_CYAN) | curses.A_BOLD)
+                                   self.__get_color(config.C_CYAN) | curses.A_BOLD)
         pos2 = self.__print_string(lineno, colno + pos1, ": %s" % (help_msg,))
         return colno + pos1 + pos2
 
@@ -815,7 +793,7 @@ class UI:
                                      self.line_colors['host'][typecolor])
         cols = []
         if self.mode == 'lag':
-            if flag & PGTOP_FLAGS['ROLE']:
+            if flag & config.FLAGS['ROLE']:
                 if process['role'] == 'master':
                     color_role = 'role_green'
                 elif process['role'] == 'standby':
@@ -827,19 +805,19 @@ class UI:
                 word = coldef['template_h'] % process['role']
                 color = self.line_colors[color_role][typecolor]
                 colno += self.__print_string(l_lineno, colno, word, color)
-            if flag & PGTOP_FLAGS['UPSTREAM']:
+            if flag & config.FLAGS['UPSTREAM']:
                 cols.append('upstream')
-            if flag & PGTOP_FLAGS['LSN']:
+            if flag & config.FLAGS['LSN']:
                 cols.append('lsn')
-            if flag & PGTOP_FLAGS['RECCONF']:
+            if flag & config.FLAGS['RECCONF']:
                 cols.append('recovery_conf')
-            if flag & PGTOP_FLAGS['STBYMODE']:
+            if flag & config.FLAGS['STBYMODE']:
                 cols.append('standby_mode')
-            if flag & PGTOP_FLAGS['LAGS']:
+            if flag & config.FLAGS['LAGS']:
                 cols.append('lag_sec')
-            if flag & PGTOP_FLAGS['LAGB']:
+            if flag & config.FLAGS['LAGB']:
                 cols.append('lag_mb')
-            if flag & PGTOP_FLAGS['WALS']:
+            if flag & config.FLAGS['WALS']:
                 cols.append('wal_sec')
             for col in cols:
                 coldef = get_coldef_by_name(self.mode, col)
@@ -869,6 +847,6 @@ def clean_str(string):
 def get_flag_from_options():
     """Return the flag depending on the options."""
     flag = 0
-    for _, val in PGTOP_FLAGS.items():
+    for _, val in config.FLAGS.items():
         flag = flag | val
     return flag
